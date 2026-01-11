@@ -1,7 +1,7 @@
 # RivalSearchMCP
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
-[![MCP Server](https://img.shields.io/badge/MCP-Server-blue?style=for-the-badge)](https://modelcontextprotocol.io)
+![MCP Server](https://img.shields.io/badge/MCP-Server-blue?style=for-the-badge)
 ![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white&style=for-the-badge)
 ![FastMCP](https://img.shields.io/badge/FastMCP-Powered-green?style=for-the-badge)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?logo=linkedin&style=for-the-badge)](https://www.linkedin.com/in/damion-rashford)
@@ -29,15 +29,11 @@ RivalSearchMCP provides comprehensive tools for accessing web content, performin
 - Generate LLMs.txt documentation files for websites
 - Integrate with AI assistants for enhanced web research
 
----
-
 ## 💡 Example Query
 
 Once connected, try asking your AI assistant:
 
 > "Use rival-search-mcp to research trends for AI agents and automation workflows in 2026. Search for the latest developments, analyze how interest has changed over time, compare regional adoption, find related emerging topics, and export the findings to a report."
-
----
 
 ## 📦 How to Get Started
 
@@ -45,7 +41,7 @@ RivalSearchMCP runs as a **remote MCP server** hosted on FastMCP. Just follow th
 
 ### Connect to Live Server
 
-<a href="cursor://anysphere.cursor-deeplink/mcp/install?name=RivalSearchMCP&config=eyJ1cmwiOiJodHRwczovL1JpdmFsU2VhcmNoTUNQLmZhc3RtY3AuYXBwL21jcCJ9"><img src="https://cursor.com/deeplink/mcp-install-dark.png" alt="Install in Cursor" height="32"></a>
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en-US/install-mcp?name=RivalSearchMCP&config=eyJ1cmwiOiJodHRwczovL1JpdmFsU2VhcmNoTUNQLmZhc3RtY3AuYXBwL21jcCJ9)
 
 Or add this configuration manually:
 
@@ -99,8 +95,6 @@ If you want to run the server locally or contribute:
    }
    ```
 
----
-
 ## 🛠 Available Tools
 
 ### Search & Discovery (1 tool)
@@ -135,8 +129,6 @@ If you want to run the server locally or contribute:
 ### Documentation Generation (1 tool)
 - `generate_llms_txt` — Generate LLMs.txt files for websites following the llmstxt.org specification
 
----
-
 ## ⚡ Key Features
 
 - **Anti-Detection**: Cloudflare bypass and rate limiting for reliable scraping
@@ -145,24 +137,6 @@ If you want to run the server locally or contribute:
 - **Progress Tracking**: Real-time progress reporting for long-running operations
 - **Data Export**: Multiple format support (CSV, JSON, SQL) for trends data
 - **Intelligent Crawling**: Smart website traversal with configurable depth and modes
-
----
-
-## 🏆 Why RivalSearchMCP?
-
-See how RivalSearchMCP compares to popular alternatives:
-
-| Feature | RivalSearchMCP | Tavily | Perplexity API |
-|---------|----------------|--------|----------------|
-| **Price** | Free | Paid | Paid |
-| **Open Source** | ✅ Yes | ❌ No | ❌ No |
-| **Self-Hostable** | ✅ Yes | ❌ No | ❌ No |
-| **API Key Required** | ❌ No | ✅ Yes | ✅ Yes |
-| **Google Trends** | ✅ Yes | ❌ No | ❌ No |
-| **Website Crawling** | ✅ Yes | Limited | ❌ No |
-| **Data Export** | CSV, JSON, SQL | JSON | JSON |
-
----
 
 ## 💬 FAQ
 
@@ -179,12 +153,6 @@ No. RivalSearchMCP works out of the box without any API keys. Just add the serve
 </details>
 
 <details>
-<summary><strong>How is this different from Tavily or Perplexity?</strong></summary>
-
-Unlike Tavily and other research APIs that require paid subscriptions, RivalSearchMCP is completely free and open source. You can inspect the code, self-host, and customize it to your needs.
-</details>
-
-<details>
 <summary><strong>What MCP clients are supported?</strong></summary>
 
 RivalSearchMCP works with any MCP-compatible client including Claude Desktop, Cursor, VS Code, and Claude Code.
@@ -196,20 +164,9 @@ RivalSearchMCP works with any MCP-compatible client including Claude Desktop, Cu
 Absolutely! Clone the repo, install dependencies, and run `python server.py`. Full instructions are in the Getting Started section above.
 </details>
 
----
-
 ## 📚 Documentation
 
-📖 **[Documentation](https://damionrashford.github.io/RivalSearchMCP)** - Full documentation
-
-**Local Documentation:**
-- [User Guide](docs/user-guide/overview.md) - Complete guide to using all tools
-- [Examples](docs/examples/basic-usage.md) - Real-world usage examples
-- [Installation](docs/getting-started/installation.md) - Setup instructions
-- [Quick Start](docs/getting-started/quick-start.md) - Get running in 5 minutes
-- [Troubleshooting](docs/getting-started/troubleshooting.md) - Solve common issues
-
----
+For detailed guides and examples, visit the **[Full Documentation](https://damionrashford.github.io/RivalSearchMCP)**.
 
 ## 🤝 Contributing
 
@@ -221,10 +178,6 @@ Contributions are welcome! Whether it's fixing bugs, adding new research tools, 
 4. **Push to the Branch** (`git push origin feature/AmazingFeature`)
 5. **Open a Pull Request**
 
-Please make sure to update tests as appropriate.
-
----
-
 ## 💡 Issues, Feedback & Support
 
 Found a bug, have a feature request, or want to share how you're using RivalSearchMCP? We'd love to hear from you!
@@ -235,17 +188,12 @@ Found a bug, have a feature request, or want to share how you're using RivalSear
 
 👉 **[Open an Issue](https://github.com/damionrashford/RivalSearchMCP/issues)**
 
-
-
 ## Attribution & License
 
 This is an open source project under the **MIT License**. If you use RivalSearchMCP, please credit it by linking back to [RivalSearchMCP](https://github.com/damionrashford/RivalSearchMCP). See [LICENSE](LICENSE) file for details.
-
----
 
 ## ⭐ Like this project? Give it a star!
 
 If you find RivalSearchMCP useful, please consider giving it a star. It helps others discover the project and motivates continued development!
 
 [![Star this repo](https://img.shields.io/github/stars/damionrashford/RivalSearchMCP?style=social)](https://github.com/damionrashford/RivalSearchMCP)
-
