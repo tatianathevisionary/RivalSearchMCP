@@ -1,0 +1,134 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode/grok-code-fast-1",
+  "provider": {
+    "opencode": {
+      "options": {
+        "timeout": 60000
+      }
+    }
+  },
+  "theme": "tokyonight",
+  "tools": {
+    "bash": true,
+    "read": true,
+    "grep": true,
+    "glob": true,
+    "edit": true,
+    "write": false,
+    "skill": true,
+    "todowrite": true,
+    "todoread": true,
+    "webfetch": true,
+    "question": true
+  },
+  "permission": {
+    "*": "allow",
+    "bash": {
+      "*": "ask",
+      "python *": "allow",
+      "pip *": "allow",
+      "pytest *": "allow",
+      "ruff *": "allow",
+      "mypy *": "allow",
+      "mkdocs *": "allow",
+      "git *": "allow"
+    },
+    "edit": "ask",
+    "write": "ask",
+    "skill": "allow"
+  },
+  "formatter": {
+    "ruff": {
+      "command": ["ruff", "format", "$FILE"],
+      "extensions": [".py"]
+    }
+  },
+  "lsp": {
+    "python": {
+      "command": ["python", "-m", "pylsp"],
+      "extensions": [".py"]
+    }
+  },
+  "mcp": {
+    "web-research": {
+      "type": "remote",
+      "url": "https://mcp.example.com/web-research",
+      "enabled": true
+    },
+    "trends-api": {
+      "type": "remote", 
+      "url": "https://mcp.example.com/trends",
+      "enabled": true
+    },
+    "rival-search-mcp": {
+      "type": "stdio",
+      "command": ["python", "server.py"],
+      "cwd": "/Users/damionrashford/RivalSearchMCP",
+      "env": {
+        "PATH": "/Users/damionrashford/mcp-expert/venv/bin:$PATH"
+      },
+      "enabled": true
+    }
+  },
+  "agent": {
+    "mcp-developer": {
+      "mode": "primary",
+      "model": "opencode/grok-code-fast-1",
+      "temperature": 0.3,
+      "tools": {
+        "edit": true,
+        "bash": true,
+        "read": true,
+        "grep": true,
+        "skill": true
+      },
+      "permission": {
+        "edit": "ask",
+        "bash": {
+          "*": "ask",
+          "python *": "allow",
+          "pip *": "allow",
+          "pytest *": "allow"
+        }
+      }
+    }
+  },
+  "command": {
+    "test": {
+      "template": "Run the full test suite with coverage and generate HTML report.\n!pytest --cov=src --cov-report=html --cov-report=term-missing tests/",
+      "description": "Run tests with coverage",
+      "agent": "testing-specialist"
+    },
+    "lint": {
+      "template": "Run ruff linter and mypy type checker on all Python files.\n!ruff check . && mypy src/",
+      "description": "Lint and type-check code",
+      "agent": "code-reviewer"
+    },
+    "server": {
+      "template": "Start the RivalSearchMCP server in development mode.\n!python server.py",
+      "description": "Start development server",
+      "agent": "mcp-developer"
+    },
+    "perf": {
+      "template": "Run performance benchmarks on key tools.\n!python -m pytest tests/test_performance.py -v",
+      "description": "Run performance tests",
+      "agent": "performance-specialist"
+    }
+  },
+  "instructions": [
+    "docs/developer-guide/architecture.md",
+    "docs/developers/contributing.md",
+    ".opencode/skill/mcp-tool-development/SKILL.md",
+    ".opencode/skill/performance-optimization/SKILL.md"
+  ],
+  "keybinds": {
+    "model_cycle": "f2",
+    "agent_cycle": "tab",
+    "command_list": "ctrl+p"
+  },
+  "compaction": {
+    "auto": true,
+    "prune": true
+  }
+}
