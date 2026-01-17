@@ -11,21 +11,20 @@ from src.logging.logger import logger
 
 
 def get_best_free_model_with_tools() -> str:
-    \"\"\"
+    """
     Dynamically fetch the best available free OpenRouter model that supports tool calling.
-    
+
     Uses OpenRouter API directly to find free models with tool support.
     Prioritizes known good models, then discovers others dynamically.
-    
+
     Returns:
         Single best model ID that is free and supports tools
-    \"\"\"
-    custom_model = os.getenv('OPENROUTER_MODEL', '')
+    """
+    custom_model = os.getenv("OPENROUTER_MODEL", "")
     if custom_model:
         logger.info(f"Using custom OpenRouter model from env: {custom_model}")
         return custom_model
 
-    # Known free models that support tool calling (from OpenRouter current list)
     # Known free models that support tool calling (from OpenRouter current list)
     priority_models = [
         "meta-llama/llama-3.3-70b-instruct:free",  # Best performance, large context
@@ -43,9 +42,7 @@ def get_best_free_model_with_tools() -> str:
             return priority_models[0]
 
         headers = {"Authorization": f"Bearer {api_key}"}
-        response = requests.get(
-            "https://openrouter.ai/api/v1/models", headers=headers, timeout=10
-        )
+        response = requests.get("https://openrouter.ai/api/v1/models", headers=headers, timeout=10)
         response.raise_for_status()
 
         data = response.json()
@@ -63,9 +60,7 @@ def get_best_free_model_with_tools() -> str:
 
                 # Check if model is free (pricing.prompt == "0" and pricing.completion == "0")
                 pricing = model.get("pricing", {})
-                is_free = (
-                    pricing.get("prompt") == "0" and pricing.get("completion") == "0"
-                )
+                is_free = pricing.get("prompt") == "0" and pricing.get("completion") == "0"
 
                 # Check if model supports tools
                 supported_params = model.get("supported_parameters", [])
@@ -88,9 +83,7 @@ def get_best_free_model_with_tools() -> str:
                 # Try to get throughput info for ranking
                 top_provider = model.get("top_provider", {})
                 throughput = (
-                    top_provider.get("throughput_last_30m", {}).get("p50", 0)
-                    if top_provider
-                    else 0
+                    top_provider.get("throughput_last_30m", {}).get("p50", 0) if top_provider else 0
                 )
                 free_tool_models.append((model_id, throughput))
 
@@ -102,9 +95,7 @@ def get_best_free_model_with_tools() -> str:
             return best_model
 
         # If no models found, use priority fallback
-        logger.warning(
-            "No free models with tool support found, using priority fallback"
-        )
+        logger.warning("No free models with tool support found, using priority fallback")
         return priority_models[0]
 
     except Exception as e:
