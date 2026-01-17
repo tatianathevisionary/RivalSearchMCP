@@ -11,6 +11,10 @@ from src.logging.logger import logger
 
 
 def get_best_free_model_with_tools() -> str:
+    custom_model = os.getenv(\"OPENROUTER_MODEL\", \"\")
+    if custom_model:
+        logger.info(f\"Using custom OpenRouter model from env: {custom_model}\")
+        return custom_model
     """
     Dynamically fetch the best available free OpenRouter model that supports tool calling.
 
