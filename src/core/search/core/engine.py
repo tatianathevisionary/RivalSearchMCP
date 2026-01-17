@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Multi-engine search component for RivalSearchMCP.
-Supports multiple search engines with Google as primary.
+Multi-engine search core functionality for RivalSearchMCP.
+Supports multiple search engines with DuckDuckGo and Yahoo.
 """
 
 import asyncio
@@ -15,17 +15,9 @@ from bs4 import BeautifulSoup, Tag
 from src.logging.logger import logger
 from src.utils import get_enhanced_ua_list, get_http_client
 
-from ..engines.google.google_scraper import GoogleSearchScraper
 
 # Additional search engine configurations
 ADDITIONAL_ENGINES = {
-    "bing": {
-        "url": "https://www.bing.com/search",
-        "params": {"q": "{query}", "count": "{num}"},
-        "headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        },
-    },
     "duckduckgo": {
         "url": "https://html.duckduckgo.com/html/",
         "params": {"q": "{query}"},
@@ -44,7 +36,7 @@ ADDITIONAL_ENGINES = {
 
 
 class MultiEngineSearch:
-    """Multi-engine search with Google as primary and other engines as fallback."""
+    """Multi-engine search with DuckDuckGo and Yahoo as primary engines."""
 
     def __init__(self):
         """Initialize the multi-engine search."""
@@ -53,84 +45,61 @@ class MultiEngineSearch:
         self.user_agents = get_enhanced_ua_list()
 
     async def search_all_engines(
-        self, query: str, num_results: int = 10, engines: Optional[List[str]] = None
+        self,
+        query: str,
+        num_results: int = 10,
+        engines: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
+        self.query = query  # Store query for results
         """
-        Search across multiple engines simultaneously.
+        Search across DuckDuckGo and Yahoo simultaneously with deduplication.
 
         Args:
             query: Search query
             num_results: Number of results per engine
-            engines: List of engines to use (default: all)
+            engines: List of engines to use (default: duckduckgo, yahoo)
 
         Returns:
-            Dictionary with results from each engine
+            Dictionary with deduplicated results from both engines
         """
         if engines is None:
-            engines = ["google"] + list(ADDITIONAL_ENGINES.keys())
+            engines = ["duckduckgo", "yahoo"]  # Only DuckDuckGo and Yahoo
 
         logger.info(f"🔍 Multi-engine search for: {query}")
         logger.info(f"🚀 Using engines: {', '.join(engines)}")
 
-        # Handle Google search using the dedicated scraper
-        if "google" in engines:
-            try:
-                scraper = GoogleSearchScraper()
-                google_results = scraper.search_google(
-                    term=query, num_results=num_results
-                )
-                # Convert GoogleSearchResult objects to dict format for consistency
-                google_dict_results = []
-                for result in google_results:
-                    google_dict_results.append(
-                        {
-                            "title": result.title,
-                            "url": result.url,
-                            "snippet": result.description,
-                            "position": result.position,
-                            "engine": "google",
-                            "domain": result.domain,
-                            "search_features": result.search_features,
-                        }
-                    )
-                self.results["google"] = google_dict_results
-                logger.info(f"✅ google: {len(google_dict_results)} results")
-            except Exception as e:
-                logger.error(f"❌ google search failed: {e}")
-                self.failed_engines.append("google")
+        # Filter to only available engines
+        available_engines = [e for e in engines if e in ADDITIONAL_ENGINES]
 
-        # Handle other engines
-        other_engines = [
-            engine
-            for engine in engines
-            if engine != "google" and engine in ADDITIONAL_ENGINES
-        ]
-        if other_engines:
-            # Create tasks for concurrent search
+        if available_engines:
+            logger.info(f"🔄 Searching {len(available_engines)} engines...")
+
+            # Search all engines concurrently
             tasks = []
-            for engine in other_engines:
-                task = self._search_engine(engine, query, num_results)
+            for engine in available_engines:
+                task = asyncio.create_task(
+                    self.search_single_engine(engine, query, num_results)
+                )
                 tasks.append(task)
 
-            # Execute all searches concurrently
-            if tasks:
-                results = await asyncio.gather(*tasks, return_exceptions=True)
+            # Wait for all searches to complete
+            results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                # Process results
-                for i, engine in enumerate(other_engines):
-                    result = results[i]
-                    if isinstance(result, Exception):
-                        logger.error(f"❌ {engine} search failed: {result}")
-                        self.failed_engines.append(engine)
-                    else:
-                        self.results[engine] = result
-                        logger.info(
-                            f"✅ {engine}: {len(result) if isinstance(result, list) else 0} results"
-                        )
+            # Process results and handle exceptions
+            for engine, result in zip(available_engines, results):
+                if isinstance(result, Exception):
+                    logger.error(f"❌ {engine} search failed: {result}")
+                    self.failed_engines.append(engine)
+                elif isinstance(result, list) and result:
+                    self.results[engine] = result
+                    logger.info(f"✅ {engine}: {len(result)} results")
+                else:
+                    logger.warning(f"⚠️ {engine}: No results")
+                    self.failed_engines.append(engine)
 
-        return self._aggregate_results()
+        return self._aggregate_results(num_results)
 
-    async def _search_engine(
+    async def search_single_engine(
         self, engine: str, query: str, num_results: int
     ) -> List[Dict[str, Any]]:
         """Search a single engine (excluding Google)."""
@@ -154,9 +123,7 @@ class MultiEngineSearch:
             response.raise_for_status()
 
             # Parse results based on engine
-            if engine == "bing":
-                return self._parse_bing_results(response.text, num_results)
-            elif engine == "duckduckgo":
+            if engine == "duckduckgo":
                 return self._parse_duckduckgo_results(response.text, num_results)
             elif engine == "yahoo":
                 return self._parse_yahoo_results(response.text, num_results)
@@ -172,53 +139,6 @@ class MultiEngineSearch:
         import random
 
         return random.choice(self.user_agents)
-
-    def _parse_bing_results(self, html: str, num_results: int) -> List[Dict[str, Any]]:
-        """Parse Bing search results."""
-        results = []
-        try:
-            soup = BeautifulSoup(html, "html.parser")
-
-            # Find search result containers
-            result_containers = soup.find_all("li", class_="b_algo")
-
-            for i, container in enumerate(result_containers[:num_results]):
-                try:
-                    # Cast to Tag for proper type checking
-                    container_tag = cast(Tag, container)
-
-                    # Extract title and link
-                    title_elem = container_tag.find("h2")
-                    if title_elem:
-                        title_tag = cast(Tag, title_elem)
-                        link_elem = title_tag.find("a")
-                    else:
-                        link_elem = None
-                    snippet_elem = container_tag.find("p")
-
-                    if title_elem and link_elem:
-                        # Cast elements to Tag for proper type checking
-                        title_tag = cast(Tag, title_elem)
-                        link_tag = cast(Tag, link_elem)
-                        snippet_tag = cast(Tag, snippet_elem) if snippet_elem else None
-                        result = {
-                            "title": title_tag.get_text(strip=True),
-                            "url": link_tag.get("href", ""),
-                            "snippet": (
-                                snippet_tag.get_text(strip=True) if snippet_tag else ""
-                            ),
-                            "position": i + 1,
-                            "engine": "bing",
-                        }
-                        results.append(result)
-                except Exception as e:
-                    logger.debug(f"Error parsing Bing result: {e}")
-                    continue
-
-        except Exception as e:
-            logger.error(f"Error parsing Bing results: {e}")
-
-        return results
 
     def _parse_duckduckgo_results(
         self, html: str, num_results: int
@@ -346,38 +266,66 @@ class MultiEngineSearch:
 
         return results
 
-    def _aggregate_results(self) -> Dict[str, Any]:
-        """Aggregate results from all engines."""
-        aggregated = {
-            "total_results": sum(len(results) for results in self.results.values()),
+    def _aggregate_results(self, num_results: int = 10) -> Dict[str, Any]:
+        """
+        Aggregate and deduplicate results from all engines.
+
+        Args:
+            num_results: Maximum number of deduplicated results to return
+
+        Returns:
+            Dictionary with aggregated results and metadata
+        """
+        total_results = sum(len(results) for results in self.results.values())
+        successful_engines = len(self.results)
+
+        # Create aggregated results list with deduplication
+        seen_urls = set()
+        all_results = []
+
+        # Sort results by engine priority: DuckDuckGo first, then Yahoo
+        engine_priority = {"duckduckgo": 0, "yahoo": 1}
+
+        for engine in sorted(
+            self.results.keys(), key=lambda x: engine_priority.get(x, 999)
+        ):
+            results = self.results[engine]
+            for result in results:
+                url = result.get("url", "").lower().rstrip("/")
+
+                # Skip duplicates based on URL
+                if url and url not in seen_urls:
+                    seen_urls.add(url)
+                    result_copy = result.copy()
+                    result_copy["source_engine"] = engine
+                    all_results.append(result_copy)
+
+                    # Limit to prevent too many results
+                    if (
+                        len(all_results) >= num_results * 2
+                    ):  # Allow some buffer for quality
+                        break
+
+        # Sort by position within each engine, then take top results
+        all_results.sort(
+            key=lambda x: (
+                engine_priority.get(x.get("source_engine", ""), 999),
+                x.get("position", 999),
+            )
+        )
+
+        final_results = all_results[:num_results]
+
+        return {
+            "query": getattr(self, "query", ""),
+            "total_raw_results": total_results,
+            "deduplicated_results": len(final_results),
+            "successful_engines": successful_engines,
+            "failed_engines": self.failed_engines.copy(),
+            "results": final_results,
             "engines_used": list(self.results.keys()),
-            "engines_failed": self.failed_engines,
-            "results_by_engine": self.results,
             "timestamp": datetime.now().isoformat(),
         }
-
-        # Create unified result list
-        all_results = []
-        for engine, results in self.results.items():
-            for result in results:
-                result["source_engine"] = engine
-                all_results.append(result)
-
-        aggregated["all_results"] = all_results
-
-        return aggregated
-
-    def get_best_results(self, num_results: int = 10) -> List[Dict[str, Any]]:
-        """Get the best results across all engines."""
-        all_results = []
-        for engine, results in self.results.items():
-            for result in results:
-                result["source_engine"] = engine
-                all_results.append(result)
-
-        # Sort by position and take top results
-        all_results.sort(key=lambda x: x.get("position", 999))
-        return all_results[:num_results]
 
     def save_results(self, filename: Optional[str] = None) -> str:
         """Save aggregated results to JSON file."""

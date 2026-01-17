@@ -13,8 +13,6 @@ from urllib.parse import urljoin, urlparse, parse_qs
 import httpx
 from bs4 import BeautifulSoup
 from bs4.element import Tag, NavigableString
-from fake_useragent import UserAgent
-import cloudscraper
 
 # Performance optimization imports
 try:
@@ -94,11 +92,11 @@ class BaseSearchEngine:
     """Base class for search engines with optimized content extraction."""
     
     def __init__(self, name: str, base_url: str):
+        from src.utils.agents import get_random_user_agent
+
         self.name = name
         self.base_url = base_url
-        self.ua = UserAgent()
-        self.scraper = cloudscraper.create_scraper()
-        
+
         # Optimized HTTP client with connection pooling and rate limiting
         limits = httpx.Limits(max_keepalive_connections=20, max_connections=100)
         self.session = httpx.AsyncClient(
@@ -106,7 +104,7 @@ class BaseSearchEngine:
             follow_redirects=True,
             limits=limits,
             headers={
-                'User-Agent': self.ua.random,
+                'User-Agent': get_random_user_agent(),
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.5',
                 'Accept-Encoding': 'gzip, deflate',

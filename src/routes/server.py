@@ -5,10 +5,15 @@ Integrates multi-search engine tools with comprehensive content extraction.
 
 from typing import Any, Dict, Optional
 
-from fastmcp import FastMCP, Context
+from fastmcp import FastMCP
+from fastmcp import Context
+from fastmcp.server.context import Context
 
 # Import tools
-from ..tools.multi_search import multi_search, search_with_google_fallback
+from ..tools.multi_search import multi_search
+
+# Import logger
+from ..logging.logger import logger
 
 # Server configuration
 SERVER_NAME = "RivalSearchMCP"
@@ -17,7 +22,7 @@ SERVER_DESCRIPTION = """
 Advanced Multi-Engine Search and Content Analysis MCP Server
 
 Features:
-- Multi-engine search (Bing, DuckDuckGo, Yahoo) with fallback support
+- Multi-engine search (DuckDuckGo, Yahoo) with fallback support
 - Comprehensive content extraction and analysis
 - Multi-level link following and content discovery
 - Performance optimization with concurrent processing
@@ -31,36 +36,33 @@ Optimized for:
 """
 
 # Create FastMCP instance
-mcp = FastMCP(
-    name=SERVER_NAME,
-    version=SERVER_VERSION,
-    include_fastmcp_meta=True
-)
+mcp = FastMCP(name=SERVER_NAME, version=SERVER_VERSION, include_fastmcp_meta=True)
+
 
 # Tool registration with comprehensive metadata
 @mcp.tool(
     name="multi_search",
-    description="Search across multiple engines (Bing, DuckDuckGo, Yahoo) with comprehensive content extraction",
+    description="Search across multiple engines (DuckDuckGo, Yahoo) with comprehensive content extraction",
     tags={"search", "multi-engine", "content-extraction"},
     meta={
         "category": "Search",
         "priority": "high",
         "performance": "optimized",
-        "fallback_support": True
-    }
+        "fallback_support": True,
+    },
 )
 async def multi_search_tool(
+    ctx: Context,
     query: str,
     num_results: int = 10,
     extract_content: bool = True,
     follow_links: bool = True,
     max_depth: int = 2,
     use_fallback: bool = True,
-    ctx: Optional[Context] = None
-) -> Dict[str, Any]:
+) -> str:
     """
     Multi-engine search with comprehensive content extraction and fallback support.
-    
+
     Args:
         query: Search query to execute
         num_results: Number of results per engine (default: 10)
@@ -69,14 +71,13 @@ async def multi_search_tool(
         max_depth: Maximum depth for link following (default: 2)
         use_fallback: Whether to use fallback strategy (default: True)
         ctx: FastMCP context for progress reporting
-    
+
     Returns:
         Comprehensive search results from multiple engines
     """
     try:
-        if ctx and hasattr(ctx, 'info'):
-            await ctx.info(f"🔍 Starting multi-engine search for: {query}")
-        
+        await ctx.info(f"🔍 Starting multi-engine search for: {query}")
+
         results = await multi_search(
             query=query,
             num_results=num_results,
@@ -84,87 +85,19 @@ async def multi_search_tool(
             follow_links=follow_links,
             max_depth=max_depth,
             use_fallback=use_fallback,
-            ctx=ctx
+            ctx=ctx,
         )
-        
-        if ctx and hasattr(ctx, 'info'):
-            await ctx.info(f"✅ Multi-engine search completed successfully!")
-        
-        return results
-        
-    except Exception as e:
-        error_msg = f"Multi-engine search failed: {e}"
-        if ctx and hasattr(ctx, 'error'):
-            await ctx.error(error_msg)
-        
-        return {
-            "error": error_msg,
-            "status": "failed",
-            "timestamp": "2025-09-02T12:00:00"
-        }
 
+        await ctx.info(f"✅ Multi-engine search completed successfully!")
 
-@mcp.tool(
-    name="search_with_google_fallback",
-    description="Search using Google first, then fallback to other engines if needed",
-    tags={"search", "google", "fallback", "multi-engine"},
-    meta={
-        "category": "Search",
-        "priority": "high",
-        "google_priority": True,
-        "fallback_support": True
-    }
-)
-async def search_with_google_fallback_tool(
-    query: str,
-    num_results: int = 10,
-    extract_content: bool = True,
-    follow_links: bool = True,
-    max_depth: int = 2,
-    ctx: Optional[Context] = None
-) -> Dict[str, Any]:
-    """
-    Search with Google priority and intelligent fallback to other engines.
-    
-    Args:
-        query: Search query to execute
-        num_results: Number of results per engine
-        extract_content: Whether to extract full page content
-        follow_links: Whether to follow internal links
-        max_depth: Maximum depth for link following
-        ctx: FastMCP context for progress reporting
-    
-    Returns:
-        Search results with Google priority and fallback support
-    """
-    try:
-        if ctx and hasattr(ctx, 'info'):
-            await ctx.info(f"🔍 Starting Google-priority search for: {query}")
-        
-        results = await search_with_google_fallback(
-            query=query,
-            num_results=num_results,
-            extract_content=extract_content,
-            follow_links=follow_links,
-            max_depth=max_depth,
-            ctx=ctx
-        )
-        
-        if ctx and hasattr(ctx, 'info'):
-            await ctx.info(f"✅ Google-priority search completed successfully!")
-        
         return results
-        
+
     except Exception as e:
-        error_msg = f"Google-priority search failed: {e}"
-        if ctx and hasattr(ctx, 'error'):
-            await ctx.error(error_msg)
-        
-        return {
-            "error": error_msg,
-            "status": "failed",
-            "timestamp": "2025-09-02T12:00:00"
-        }
+        error_msg = f"Multi-engine search tool failed: {e}"
+        logger.error(error_msg)
+        await ctx.error(error_msg)
+
+        return f"❌ **Error:** Multi-engine search failed: {error_msg}"
 
 
 # Startup and shutdown events
@@ -186,9 +119,9 @@ app = mcp
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     print(f"🚀 Starting {SERVER_NAME} v{SERVER_VERSION}")
     print(f"📖 Description: {SERVER_DESCRIPTION}")
-    
+
     # For now, just print that the server is ready
-    print("🚀 Server is ready! Use FastMCP to run it.") 
+    print("🚀 Server is ready! Use FastMCP to run it.")

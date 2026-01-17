@@ -17,33 +17,20 @@ from .cleaners import (
     UnifiedTextCleaner,
     HTMLToMarkdownConverter
 )
-from .utils import (
-    extract_main_content,
-    extract_search_results,
-    clean_html_content,
-    parse_html_structure,
-    html_to_markdown
-)
+
 
 __all__ = [
     # Extractors
     'UnifiedContentExtractor',
-    'GoogleSpecificExtractor', 
+    'GoogleSpecificExtractor',
     'GenericContentExtractor',
-    
+
     # Parsers
     'UnifiedHTMLParser',
     'GoogleSearchParser',
     'DocumentationParser',
-    
+
     # Cleaners
     'UnifiedTextCleaner',
     'HTMLToMarkdownConverter',
-    
-    # Utility functions
-    'extract_main_content',
-    'extract_search_results',
-    'clean_html_content',
-    'parse_html_structure',
-    'html_to_markdown'
 ]

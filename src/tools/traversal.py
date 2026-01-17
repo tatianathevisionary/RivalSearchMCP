@@ -25,6 +25,7 @@ def register_traversal_tools(mcp: FastMCP):
         mode: Literal["research", "docs", "map"] = "research",
         max_pages: int = 5,
         max_depth: int = 2,
+        generate_llms_txt: bool = False,
     ) -> dict:
         """
         Comprehensive website traversal with different modes for different use cases.
@@ -71,7 +72,7 @@ def register_traversal_tools(mcp: FastMCP):
                     }
                 )
 
-            return {
+            response = {
                 "success": True,
                 "pages": pages,
                 "summary": f"Successfully traversed {len(result)} pages in {mode} mode",
@@ -79,6 +80,29 @@ def register_traversal_tools(mcp: FastMCP):
                 "source": url,
                 "mode": mode,
             }
+
+            if generate_llms_txt:
+                # Generate LLMs.txt content
+                llms_txt_content = f"""# {url}
+
+This file contains information about {url} for Large Language Models.
+
+## Site Information
+- URL: {url}
+- Traversal Mode: {mode}
+- Pages Traversed: {len(pages)}
+
+## Content Summary
+{response["summary"]}
+
+## Key Pages
+"""
+                for page in pages[:10]:  # Include up to 10 key pages
+                    llms_txt_content += f"- {page['title']}: {page['url']}\n"
+
+                response["llms_txt"] = llms_txt_content
+
+            return response
 
         except Exception as e:
             logger.error(f"Website traversal failed for {url}: {e}")

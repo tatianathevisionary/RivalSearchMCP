@@ -27,7 +27,7 @@ def get_advanced_headers(user_agent: Optional[str] = None) -> dict:
         "Sec-Fetch-Site": "none",
         "Sec-Fetch-User": "?1",
         "Cache-Control": "max-age=0",
-        "Referer": "https://www.google.com/",
+        "Referer": "https://www.duckduckgo.com/",
     }
 
 
@@ -37,12 +37,4 @@ def get_advanced_cookies() -> dict:
         "CONSENT": "YES+cb.20231231-07-p0.en+FX+{}".format(random.randint(100, 999)),
         "SOCS": "CAESHAgBEhJnd3NfMjAyNTAzMjAtMF9SQzEaAmhyIAEaBgiA-_e-Bg",
         "__Secure-ENID": "26.SE=E11y2NVkgAIHFQhBo6NIEWXowdKAqBlC7jgTI4SmEkZPeaiYTVxGTwH58I_HQZJETqHrOX8tZfB-b1WRrngoymx8ge7XPctkcG_AVWImTm8UziZVe14Vci8ozFhzm9iu9DlUVh3VTOsd4FcCBbavTonHe2vMxN1olFRLAtz6zklzCSaABwhIxpMerzBDRH-Yz3m4qnaxLLWg___1YBb8nhQLzD97yG7HXkT3XvPA91535qkn7CI0P0BmQ_sOiTvmQ2-d4TwLx1WggkpE2EavBe3FO3MYSehbA_H-qYqG6FqSl1D6DglEPey9",
-    }
-
-
-def get_google_cookies() -> dict:
-    """Get Google-specific cookies for search requests."""
-    return {
-        "CONSENT": "PENDING+987",
-        "SOCS": "CAESHAgBEhIaAB",
     }

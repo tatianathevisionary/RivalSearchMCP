@@ -7,7 +7,7 @@ This guide shows you how to use RivalSearchMCP to search the internet for curren
 ## What Web Search Does
 
 Instead of your AI saying "I can't access current information," it will:
-- Search Google, Bing, DuckDuckGo, and Yahoo
+- Search across DuckDuckGo and Yahoo engines
 - Find current articles, news, and websites
 - Get real-time information and updates
 - Provide multiple sources for verification
@@ -58,27 +58,21 @@ Instead of your AI saying "I can't access current information," it will:
 - "Search for Python vs JavaScript popularity"
 - "Compare electric cars vs hybrid cars"
 
-## Search Engines Available
+## Multi-Engine Search
 
-### Google Search
-- **Best for:** General information, news, current events
-- **Use when:** You want comprehensive results
-- **Example:** "Search Google for 'latest AI breakthroughs'"
-
-### Bing Search
-- **Best for:** Business information, technical details
-- **Use when:** You need structured data
-- **Example:** "Search Bing for 'Microsoft earnings 2024'"
+RivalSearchMCP uses intelligent multi-engine search across two reliable providers:
 
 ### DuckDuckGo
-- **Best for:** Privacy-focused searches
-- **Use when:** You want unbiased results
-- **Example:** "Search DuckDuckGo for 'climate change data'"
+- **Best for:** Privacy-focused searches with unbiased results
+- **Features:** No tracking, clean results, good for general searches
+- **Use when:** You want balanced, privacy-respecting results
 
 ### Yahoo Search
-- **Best for:** News and current events
-- **Use when:** You want recent information
-- **Example:** "Search Yahoo for 'today's top stories'"
+- **Best for:** Current news, entertainment, and comprehensive web results
+- **Features:** Strong news integration, diverse content sources
+- **Use when:** You need recent information and news coverage
+
+**How it works:** The system automatically searches both engines, combines results, removes duplicates, and provides the most relevant information.
 
 ## Getting Better Search Results
 

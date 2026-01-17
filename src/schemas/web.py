@@ -1,35 +1,13 @@
 """
 Web tools schemas for FastMCP server.
-Handles Google search results, search scraping, and website traversal operations.
+Handles website traversal operations.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import List
 
 from pydantic import BaseModel, Field
 
-from .retrieval import SearchResult, TraversalPage
-
-
-class GoogleSearchResult(BaseModel):
-    """Result from Google search operation."""
-
-    success: bool = Field(description="Whether search was successful")
-    results: List[SearchResult] = Field(description="List of search results")
-    query: str = Field(description="Search query used")
-    count: int = Field(description="Number of results returned")
-    error: Optional[str] = Field(default=None, description="Error message if failed")
-
-
-class GoogleSearchScrapeResult(BaseModel):
-    """Result from Google Search scraping operation."""
-
-    success: bool = Field(description="Whether scraping was successful")
-    results: List[Dict[str, Any]] = Field(description="List of scraped search results")
-    query: str = Field(description="Search query used")
-    count: int = Field(description="Number of results returned")
-    total_results: int = Field(description="Total results found")
-    search_metadata: Dict[str, Any] = Field(default={}, description="Search metadata")
-    error: Optional[str] = Field(default=None, description="Error message if failed")
+from .retrieval import TraversalPage
 
 
 class WebsiteTraversalResult(BaseModel):

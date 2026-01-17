@@ -14,11 +14,9 @@ graph TB
     B --> C[Search Engine Layer]
     B --> D[Content Processing Layer]
     B --> E[Tool Management Layer]
-    
-    C --> F[Google Search]
-    C --> G[Bing Search]
-    C --> H[DuckDuckGo]
-    C --> I[Yahoo Search]
+
+    C --> F[DuckDuckGo]
+    C --> G[Yahoo Search]
     
     D --> J[Content Extractors]
     D --> K[HTML Parsers]
@@ -34,10 +32,8 @@ graph TB
 ### **Search Engine Layer**
 The search engine layer provides **unified access** to multiple search providers:
 
-- **Google Search** - Primary search with anti-detection
-- **Bing Search** - Microsoft's search engine
-- **DuckDuckGo** - Privacy-focused search
-- **Yahoo Search** - Comprehensive web search
+- **DuckDuckGo** - Privacy-focused search engine
+- **Yahoo Search** - Comprehensive web search engine
 
 **Key Benefits:**
 - **Fallback Strategy** - If one engine fails, others continue
@@ -130,10 +126,8 @@ MCP tool registration and management:
 ## 🔗 External Dependencies
 
 ### **Search Engines**
-- **Google** - Primary search provider
-- **Bing** - Microsoft search integration
-- **DuckDuckGo** - Privacy-focused search
-- **Yahoo** - Comprehensive web search
+- **DuckDuckGo** - Privacy-focused search engine
+- **Yahoo** - Comprehensive web search engine
 
 ### **Content Processing**
 - **BeautifulSoup** - HTML parsing and extraction

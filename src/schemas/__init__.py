@@ -38,8 +38,6 @@ from .trends import (
     TrendsSearchRequest,
 )
 from .web import (
-    GoogleSearchResult,
-    GoogleSearchScrapeResult,
     WebsiteTraversalResult,
 )
 
@@ -51,8 +49,6 @@ __all__ = [
     "TraversalResult",
     "RetrieveResult",
     "StreamResult",
-    "GoogleSearchResult",
-    "GoogleSearchScrapeResult",
     "WebsiteTraversalResult",
     "SuccessResponse",
     # Google Trends schemas

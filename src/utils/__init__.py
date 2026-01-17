@@ -9,10 +9,9 @@ from .error import log_operation, safe_request
 from .headers import (
     get_advanced_cookies,
     get_advanced_headers,
-    get_google_cookies,
 )
 from .parsing import clean_text, create_soup, extract_text_safe
-from .clients import close_http_clients, get_cloudscraper_session, get_http_client
+from .clients import close_http_clients, get_http_client
 from .llms import (
     categorize_page_advanced,
     clean_html_content,
@@ -59,7 +58,7 @@ __all__ = [
     "get_lynx_user_agent",
     # HTTP client management
     "get_http_client",
-    "get_cloudscraper_session",
+
     "close_http_clients",
     # HTML parsing
     "create_soup",
@@ -71,7 +70,6 @@ __all__ = [
     # Headers and cookies
     "get_advanced_headers",
     "get_advanced_cookies",
-    "get_google_cookies",
     # Google Trends utilities
     "generate_filename",
     "create_export_directory",

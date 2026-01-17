@@ -11,7 +11,7 @@ from src.utils import clean_html_to_markdown
 
 # Import the new multi-search system
 from ..search.core.multi_engines import MultiSearchResult
-from ..search.engines.bing.bing_engine import BingSearchEngine
+
 from .base import base_fetch_url
 
 
@@ -46,13 +46,17 @@ async def rival_retrieve(
     else:
         # Handle search query using new multi-search system
         try:
-            bing_engine = BingSearchEngine()
-            search_results = await bing_engine.search(
+            from ..search.engines.duckduckgo.duckduckgo_engine import (
+                DuckDuckGoSearchEngine,
+            )
+
+            duckduckgo_engine = DuckDuckGoSearchEngine()
+            search_results = await duckduckgo_engine.search(
                 query=resource,
                 num_results=limit,
-                extract_content=False  # Don't extract content for this function
+                extract_content=False,  # Don't extract content for this function
             )
-            
+
             if search_results:
                 formatted_results = []
                 for result in search_results:
@@ -91,13 +95,15 @@ async def google_search_fetch(query: str, num_results: int = 5) -> str:
         Formatted string with search results
     """
     try:
-        bing_engine = BingSearchEngine()
-        results = await bing_engine.search(
+        from ..search.engines.duckduckgo.duckduckgo_engine import DuckDuckGoSearchEngine
+
+        duckduckgo_engine = DuckDuckGoSearchEngine()
+        results = await duckduckgo_engine.search(
             query=query,
             num_results=num_results,
-            extract_content=False  # Don't extract content for this function
+            extract_content=False,  # Don't extract content for this function
         )
-        
+
         if not results:
             return f"No results found for: {query}"
 

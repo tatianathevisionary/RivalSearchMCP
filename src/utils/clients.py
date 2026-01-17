@@ -1,18 +1,16 @@
 """
 HTTP client management utilities for RivalSearchMCP.
-Handles HTTP client and cloudscraper session management with connection pooling.
+Handles HTTP client session management with connection pooling.
 """
 
 from typing import Optional
 
-import cloudscraper
 import httpx
 
 from .agents import get_random_user_agent
 
-# Global connection pools
+# Global connection pool
 _http_client: Optional[httpx.AsyncClient] = None
-_cloudscraper_session: Optional[cloudscraper.CloudScraper] = None
 
 
 async def get_http_client() -> httpx.AsyncClient:
@@ -27,21 +25,10 @@ async def get_http_client() -> httpx.AsyncClient:
     return _http_client
 
 
-async def get_cloudscraper_session() -> cloudscraper.CloudScraper:
-    """Get or create a reusable cloudscraper session."""
-    global _cloudscraper_session
-    if _cloudscraper_session is None:
-        _cloudscraper_session = cloudscraper.create_scraper()
-    return _cloudscraper_session
-
-
 async def close_http_clients():
     """Close all HTTP clients and free resources."""
-    global _http_client, _cloudscraper_session
+    global _http_client
 
     if _http_client:
         await _http_client.aclose()
         _http_client = None
-
-    if _cloudscraper_session:
-        _cloudscraper_session = None

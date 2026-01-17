@@ -7,13 +7,13 @@ import os
 from fastmcp import FastMCP
 
 # Import modular tool registration functions
-from src.tools.retrieval import register_retrieval_tools
+
 from src.tools.search import register_search_tools
 from src.tools.traversal import register_traversal_tools
 from src.tools.analysis import register_analysis_tools
 from src.tools.trends import register_trends_tools
-from src.tools.llms import register_llms_tools
 from src.tools.research import register_research_tools
+from src.tools.scientific import register_scientific_tools
 
 # Import prompts
 from src.prompts import register_prompts
@@ -40,64 +40,50 @@ SERVER_INSTRUCTIONS = """
 Advanced web research and content discovery MCP server.
 
 CAPABILITIES:
-- Google Search scraping with Cloudflare bypass and anti-detection
+- Multi-engine search across Yahoo and DuckDuckGo with intelligent fallbacks
 - Google Trends analysis with data export (CSV, JSON, SQL)
-- LLMs.txt generation for websites following llmstxt.org specification
 - Website traversal and structure analysis with intelligent crawling
 - Content extraction and processing with OCR support
-- Multi-engine search with automatic fallbacks
-- Comprehensive research workflows combining multiple tools
+- Scientific research tools for academic and dataset discovery
+- AI-enhanced research workflows with OpenRouter integration
 
-AVAILABLE TOOLS:
+AVAILABLE TOOLS (8 Total):
 Search & Discovery:
-- google_search: Advanced Google search with rich snippets detection
-- multi_engine_search: Fallback search using multiple engines
-- retrieve_content: Enhanced content retrieval from URLs
-- stream_content: Real-time streaming content processing
-
-Trends & Analytics:
-- search_trends: Google Trends analysis for keywords
-- compare_keywords: Comprehensive keyword comparison
-- get_related_queries: Find related search terms
-- get_interest_by_region: Geographic interest analysis
-- export_trends: Export trends data in multiple formats
-- create_sql_table: Database setup for trends analysis
+- multi_search: Multi-engine search across Yahoo and DuckDuckGo with content extraction
+- traverse_website: Intelligent website exploration and mapping
 
 Content Analysis:
-- analyze_content: AI-powered content analysis and insights
-- research_topic: End-to-end research workflow
-- traverse_website: Intelligent website exploration
-- extract_links: Link extraction and analysis
+- content_operations: Consolidated retrieve, stream, analyze, and extract operations
+- research_topic: End-to-end research workflow for topics
 
-Research & Workflows:
-- comprehensive_research: Multi-phase research with progress tracking
-- research_workflow_prompt: Structured research guidance
-- market_research_prompt: Industry analysis templates
-- technical_research_prompt: Technology research frameworks
+Trends & Analytics:
+- trends_core: Google Trends analysis with search, related queries, and regional data
+- trends_export: Export trends data in multiple formats
 
-Documentation:
-- generate_llms_txt: Generate LLMs.txt files for websites
+Research & Scientific:
+- scientific_research: Academic paper and dataset discovery
+- research_workflow: AI-enhanced comprehensive research with progress tracking
 
 USAGE PATTERNS:
-1. Basic Research: Use google_search for simple queries
-2. Trend Analysis: Use search_trends + export_trends for market research
-3. Content Discovery: Use traverse_website + analyze_content for deep analysis
-4. Comprehensive Research: Use comprehensive_research for end-to-end workflows
-5. Documentation: Use generate_llms_txt for website documentation
+1. Basic Research: Use multi_search for simple queries across Yahoo/DuckDuckGo
+2. Trend Analysis: Use trends_core + trends_export for market research
+3. Content Discovery: Use traverse_website + content_operations for deep analysis
+4. Scientific Research: Use scientific_research for academic papers and datasets
+5. Comprehensive Research: Use research_workflow for AI-enhanced multi-phase research
 
 BEST PRACTICES:
 - Provide specific, detailed search queries for better results
-- Use appropriate result limits (10-50 for search, 100+ for trends)
+- Use appropriate result limits (10-20 for search, 100+ for trends)
 - Combine multiple tools for comprehensive research workflows
 - Use trends tools for market research and content strategy
 - Leverage traversal tools for website analysis and mapping
 
 PERFORMANCE NOTES:
-- Search tools include automatic rate limiting and anti-detection
+- Multi-engine search with automatic fallbacks for reliability
 - Trends analysis supports multiple timeframes and geographic regions
 - Content analysis includes OCR for image text extraction
 - All tools provide progress reporting and detailed logging
-- Comprehensive research tools include multi-phase progress tracking
+- AI-enhanced research tools include multi-phase progress tracking
 
 MONITORING & HEALTH:
 - Health check endpoint: /health
@@ -114,20 +100,21 @@ app = FastMCP(
     include_fastmcp_meta=True,  # Enable rich metadata
     on_duplicate_tools="error",  # Prevent conflicts
     on_duplicate_resources="warn",
-    on_duplicate_prompts="replace"
+    on_duplicate_prompts="replace",
 )
 
 # Register middleware for production readiness
 register_middleware(app)
 
 # Register all tools using modular approach
-register_retrieval_tools(app)
+
 register_search_tools(app)
 register_traversal_tools(app)
 register_analysis_tools(app)
 register_trends_tools(app)
-register_llms_tools(app)
 register_research_tools(app)
+register_scientific_tools(app)
+# OCR functionality is integrated into retrieval tools - no separate registration needed
 
 # Register prompts
 register_prompts(app)
@@ -138,15 +125,14 @@ register_resources(app)
 # Register custom routes
 register_custom_routes(app)
 
+# Start background tasks that require event loop
+from src.middleware.middleware import start_background_tasks
+start_background_tasks()
+
 if __name__ == "__main__":
     if ENVIRONMENT == "production":
         logger.info(f"Starting RivalSearchMCP in production mode on port {PORT}")
-        app.run(
-            transport="http",
-            host="0.0.0.0",
-            port=PORT,
-            log_level=LOG_LEVEL
-        )
+        app.run(transport="http", host="0.0.0.0", port=PORT, log_level=LOG_LEVEL)
     else:
         logger.info("Starting RivalSearchMCP in development mode (stdio)")
         # For CLI compatibility, run directly with STDIO transport

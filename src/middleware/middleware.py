@@ -12,6 +12,9 @@ from datetime import datetime, timedelta
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.exceptions import ToolError, ResourceError, PromptError
 
+# Global reference to security middleware for startup tasks
+_security_middleware = None
+
 
 class TimingMiddleware(Middleware):
     """Middleware for timing MCP operations."""
@@ -219,41 +222,87 @@ class PerformanceMonitoringMiddleware(Middleware):
 
 
 class SecurityMiddleware(Middleware):
-    """Middleware for security monitoring and validation."""
-    
+    """Enhanced middleware for security monitoring and validation."""
+
     def __init__(self, block_suspicious_requests: bool = True):
         self.block_suspicious_requests = block_suspicious_requests
         self.logger = logging.getLogger("security")
-        self.suspicious_patterns = [
-            "script", "javascript", "eval", "exec", "system",
-            "rm -rf", "drop table", "union select"
-        ]
-    
+        # Import our enhanced security module
+        from src.core.security.security import get_security_middleware
+        self.security = get_security_middleware()
+
+    def start_cleanup_task(self):
+        """Start cleanup task for rate limiter."""
+        if hasattr(self.security, 'start_cleanup_task'):
+            self.security.start_cleanup_task()
+
     def _is_suspicious(self, context: MiddlewareContext) -> bool:
         """Check if request contains suspicious patterns."""
         message_str = str(context.message).lower()
-        return any(pattern in message_str for pattern in self.suspicious_patterns)
-    
+        suspicious_patterns = [
+            "script", "javascript", "eval", "exec", "system",
+            "rm -rf", "drop table", "union select",
+            "<script", "<iframe", "<object", "<embed",
+            "vbscript:", "data:", "file://"
+        ]
+        return any(pattern in message_str for pattern in suspicious_patterns)
+
     async def on_request(self, context: MiddlewareContext, call_next):
+        # Enhanced security check using our security module
+        request_data = {
+            "client_ip": getattr(context, "client_ip", "unknown"),
+            "user_agent": getattr(context, "user_agent", ""),
+            "tool_name": context.method.replace("tools/", "") if context.method else "",
+            "parameters": getattr(context.message, "params", {}) if hasattr(context.message, "params") else {},
+        }
+
+        # Use our security middleware for comprehensive validation
+        allowed, reason = await self.security.check_request(request_data)
+
+        if not allowed:
+            self.logger.warning(f"Request blocked: {reason}")
+            raise ToolError(f"Request blocked: {reason}")
+
+        # Additional basic suspicious pattern check
         if self._is_suspicious(context):
-            self.logger.warning(f"Suspicious request detected: {context.method}")
-            
+            self.logger.warning(f"Suspicious pattern detected in request: {context.method}")
             if self.block_suspicious_requests:
-                raise ToolError("Request blocked due to security concerns")
-        
+                raise ToolError("Request blocked due to suspicious content")
+
         return await call_next(context)
 
 
 def register_middleware(mcp) -> None:
     """Register all middleware with the FastMCP server."""
-    
+
     # Add middleware in logical order (last added runs first)
-    mcp.add_middleware(SecurityMiddleware(block_suspicious_requests=True))
+    security_middleware = SecurityMiddleware(block_suspicious_requests=True)
+    mcp.add_middleware(security_middleware)
     mcp.add_middleware(ErrorHandlingMiddleware(include_traceback=False, transform_errors=True))
     mcp.add_middleware(RateLimitingMiddleware(max_requests_per_minute=120, per_client=True))
     mcp.add_middleware(PerformanceMonitoringMiddleware())
     mcp.add_middleware(TimingMiddleware(log_slow_operations=True, slow_threshold_ms=2000.0))
     mcp.add_middleware(LoggingMiddleware(include_payloads=True, max_payload_length=500))
+
+    # Store reference to security middleware for later startup
+    global _security_middleware
+    _security_middleware = security_middleware
     
     # Log middleware registration
     logging.getLogger("middleware").info("All middleware registered successfully")
+
+
+def start_background_tasks():
+    """Start background tasks that require an event loop."""
+    global _security_middleware
+    if _security_middleware:
+        try:
+            # Only start if there's a running event loop
+            import asyncio
+            if asyncio.get_running_loop():
+                _security_middleware.start_cleanup_task()
+                logging.getLogger("middleware").info("Security middleware background tasks started")
+            else:
+                logging.getLogger("middleware").info("No running event loop, background tasks will start on first request")
+        except RuntimeError:
+            logging.getLogger("middleware").info("No running event loop, background tasks will start on first request")

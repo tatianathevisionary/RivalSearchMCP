@@ -18,7 +18,7 @@
 
 ## What It Does
 
-RivalSearchMCP provides comprehensive tools for accessing web content, performing multi-engine searches, analyzing websites, conducting research workflows, and analyzing trends data. It includes 6 core tool categories for comprehensive web research capabilities.
+RivalSearchMCP provides comprehensive tools for accessing web content, performing multi-engine searches across Yahoo and DuckDuckGo, analyzing websites, conducting research workflows, and analyzing trends data. It includes 8 specialized tools organized into key categories for comprehensive web research capabilities.
 
 ## ✅ Why It's Useful
 
@@ -95,45 +95,34 @@ If you want to run the server locally or contribute:
    }
    ```
 
-## 🛠 Available Tools
+## 🛠 Available Tools (8 Total)
 
-### Search & Discovery (1 tool)
-- `web_search` — Advanced web search with Cloudflare bypass, rich snippets detection, and multi-engine fallback
+### Search & Discovery
+- `multi_search` — Multi-engine search across Yahoo and DuckDuckGo with content extraction and intelligent fallbacks
 
-### Content Retrieval (2 tools)
-- `retrieve_content` — Enhanced content retrieval from URLs with multiple extraction methods
-- `stream_content` — Real-time streaming content processing from WebSocket URLs
+### Content Operations
+- `content_operations` — Consolidated tool for retrieving, streaming, analyzing, and extracting content from URLs
 
-### Website Analysis (1 tool)
-- `traverse_website` — Intelligent website exploration with different modes (research, docs, map)
+### Website Analysis
+- `traverse_website` — Intelligent website exploration with research, documentation, and mapping modes
 
-### Content Analysis (2 tools)
-- `analyze_content` — AI-powered content analysis and insights extraction
-- `extract_links` — Link extraction and analysis from web pages
+### Trends Analysis (2 tools)
+- `trends_core` — Google Trends analysis with search, related queries, regional data, and comparisons
+- `trends_export` — Export trends data in CSV, JSON, and SQL formats
 
-### Trends Analysis (10 tools)
-- `search_trends` — Search for trends data for given keywords
-- `get_related_queries` — Get related queries for a keyword with interest values
-- `get_interest_by_region` — Get interest by geographic region for a keyword
-- `get_trending_searches` — Get trending searches for a location
-- `export_trends_to_csv` — Export trends data to CSV file
-- `export_trends_to_json` — Export trends data to JSON file
-- `create_sql_table` — Create SQLite table with trends data
-- `compare_keywords_comprehensive` — Comprehensive comparison of multiple keywords
-- `get_interest_over_time` — Get interest over time for keywords
-- `get_related_topics` — Get related topics for a keyword
-
-### Research Workflows (1 tool)
+### Research Workflows (2 tools)
 - `research_topic` — End-to-end research workflow for comprehensive topic analysis
+- `research_workflow` — AI-enhanced research with OpenRouter integration and progress tracking
 
-### Documentation Generation (1 tool)
-- `generate_llms_txt` — Generate LLMs.txt files for websites following the llmstxt.org specification
+### Scientific Research
+- `scientific_research` — Academic paper search and dataset discovery across arXiv, Semantic Scholar, PubMed, Kaggle, and Hugging Face
 
 ## ⚡ Key Features
 
-- **Anti-Detection**: Cloudflare bypass and rate limiting for reliable scraping
-- **Rich Snippets**: Advanced detection of featured snippets and rich results
-- **Multi-Engine Fallback**: Automatic fallback to alternative search engines
+- **Multi-Engine Search**: Intelligent search across Yahoo and DuckDuckGo with automatic fallbacks
+- **Content Processing**: Advanced content extraction and analysis with OCR support
+- **AI-Enhanced Research**: OpenRouter integration for AI-powered insights and research assistance
+- **Scientific Discovery**: Academic paper and dataset search across major repositories
 - **Progress Tracking**: Real-time progress reporting for long-running operations
 - **Data Export**: Multiple format support (CSV, JSON, SQL) for trends data
 - **Intelligent Crawling**: Smart website traversal with configurable depth and modes
