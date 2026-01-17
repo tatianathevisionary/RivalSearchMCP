@@ -11,21 +11,21 @@ from src.logging.logger import logger
 
 
 def get_best_free_model_with_tools() -> str:
-    """Dynamically fetch the best available free OpenRouter model that supports tool calling."""
+    \"\"\"
+    Dynamically fetch the best available free OpenRouter model that supports tool calling.
+    
+    Uses OpenRouter API directly to find free models with tool support.
+    Prioritizes known good models, then discovers others dynamically.
+    
+    Returns:
+        Single best model ID that is free and supports tools
+    \"\"\"
     custom_model = os.getenv('OPENROUTER_MODEL', '')
     if custom_model:
         logger.info(f"Using custom OpenRouter model from env: {custom_model}")
         return custom_model
 
-    # Known free models...
-    Dynamically fetch the best available free OpenRouter model that supports tool calling.
-
-    Uses OpenRouter API directly to find free models with tool support.
-    Prioritizes known good models, then discovers others dynamically.
-
-    Returns:
-        Single best model ID that is free and supports tools
-    """
+    # Known free models that support tool calling (from OpenRouter current list)
     # Known free models that support tool calling (from OpenRouter current list)
     priority_models = [
         "meta-llama/llama-3.3-70b-instruct:free",  # Best performance, large context
