@@ -8,7 +8,7 @@ import hashlib
 import re
 import time
 from collections import defaultdict
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
 
 from src.logging.logger import logger
@@ -266,7 +266,7 @@ class InputValidator:
         return True, content
 
     @classmethod
-    def validate_numeric_param(cls, value: any, param_name: str, min_val: Optional[int] = None,
+    def validate_numeric_param(cls, value: Any, param_name: str, min_val: Optional[int] = None,
                              max_val: Optional[int] = None) -> Tuple[bool, Union[int, str]]:
         """
         Validate numeric parameters.
@@ -295,7 +295,7 @@ class InputValidator:
             return False, f"{param_name} must be a valid integer"
 
     @classmethod
-    def validate_boolean_param(cls, value: any, param_name: str) -> Tuple[bool, Union[bool, str]]:
+    def validate_boolean_param(cls, value: Any, param_name: str) -> Tuple[bool, Union[bool, str]]:
         """
         Validate boolean parameters.
 
