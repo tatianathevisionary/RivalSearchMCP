@@ -67,6 +67,7 @@ mcp_*.log
 
 # Claude AI files
 .claude/
+.opencode/
 .claude.json
 .claude.json.backup
 
