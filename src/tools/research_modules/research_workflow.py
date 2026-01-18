@@ -9,7 +9,6 @@ from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 from fastmcp import Context
-from fastmcp.server.context import Context
 from pydantic import Field
 from typing_extensions import Annotated
 from openrouter import OpenRouter
@@ -56,14 +55,6 @@ class ResearchWorkflowExecutor:
         """
         research_id = f"research_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-        # Store research state
-        if ctx:
-            ctx.set_state("research_id", research_id)
-            ctx.set_state("research_topic", topic)
-            ctx.set_state("research_start_time", datetime.now().isoformat())
-            ctx.set_state("ai_model", ai_model)
-            ctx.set_state("ai_insights_enabled", enable_ai_insights)
-
         # Initialize AI client
         ai_client = None
         selected_model = None
@@ -96,6 +87,13 @@ class ResearchWorkflowExecutor:
             research_id, topic, max_sources, include_trends,
             include_website_analysis, research_depth
         )
+
+        # Store research metadata in results
+        research_results["research_id"] = research_id
+        research_results["research_topic"] = topic
+        research_results["research_start_time"] = datetime.now().isoformat()
+        research_results["ai_model"] = ai_model
+        research_results["ai_insights_enabled"] = enable_ai_insights
 
         try:
             # Execute research phases

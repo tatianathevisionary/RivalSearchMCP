@@ -80,6 +80,8 @@ def register_analysis_tools(mcp: FastMCP):
                 else:
                     result = f"Failed to retrieve content from {url} after {max_retries} attempts"
 
+                return result
+
             elif operation == "stream":
                 if not url:
                     raise ValueError("URL required for stream operation")
@@ -104,6 +106,8 @@ def register_analysis_tools(mcp: FastMCP):
                     result = str(content)
                 else:
                     result = f"Failed to stream content from {url} after {max_retries} attempts"
+
+                return result
 
             elif operation == "analyze":
                 if not content:
@@ -245,8 +249,114 @@ def register_analysis_tools(mcp: FastMCP):
             elif operation == "extract":
                 if not url:
                     raise ValueError("URL required for extract operation")
-                # Implement extract logic here
-                return f"Links extracted from {url} of type {link_type}"
+
+                # Real link extraction implementation
+                from src.core.fetch import base_fetch_url
+                from urllib.parse import urljoin, urlparse
+
+                try:
+                    content = await base_fetch_url(url)
+                    if not content:
+                        return format_research_analysis_markdown(
+                            {"topic": f"Link Extraction from {url}", "status": "error", "error": "Failed to fetch content"},
+                            "Content Operations",
+                        )
+
+                    # Parse HTML and extract links
+                    from bs4 import BeautifulSoup
+                    soup = BeautifulSoup(str(content), 'html.parser')
+
+                    all_links = []
+                    internal_links = []
+                    external_links = []
+                    image_links = []
+                    document_links = []
+
+                    base_domain = urlparse(url).netloc
+
+                    # Extract <a> tags
+                    for link in soup.find_all('a', href=True):
+                        href = link.get('href', '')
+                        if not href or href.startswith('#'):
+                            continue
+
+                        absolute_url = urljoin(url, href)
+                        link_domain = urlparse(absolute_url).netloc
+
+                        link_info = {
+                            "url": absolute_url,
+                            "text": link.get_text(strip=True)[:100] or "No text",
+                            "type": "internal" if link_domain == base_domain else "external"
+                        }
+
+                        all_links.append(link_info)
+
+                        if link_domain == base_domain:
+                            internal_links.append(link_info)
+                        else:
+                            external_links.append(link_info)
+
+                        # Check if it's a document
+                        if any(absolute_url.lower().endswith(ext) for ext in ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip']):
+                            document_links.append(link_info)
+
+                    # Extract images
+                    for img in soup.find_all('img', src=True):
+                        src = img.get('src', '')
+                        absolute_url = urljoin(url, src)
+                        image_links.append({
+                            "url": absolute_url,
+                            "alt": img.get('alt', 'No alt text'),
+                            "type": "image"
+                        })
+
+                    # Select links based on link_type
+                    if link_type == "internal":
+                        selected_links = internal_links
+                    elif link_type == "external":
+                        selected_links = external_links
+                    elif link_type == "images":
+                        selected_links = image_links
+                    elif link_type == "documents":
+                        selected_links = document_links
+                    else:  # "all"
+                        selected_links = all_links
+
+                    # Limit to max_links
+                    selected_links = selected_links[:max_links]
+
+                    # Format result
+                    result_summary = f"Extracted {len(selected_links)} {link_type} links from {url}"
+                    key_findings = [f"{link.get('text', link.get('alt', 'Link'))}: {link['url']}" for link in selected_links[:10]]
+
+                    if link_type == "all":
+                        result_summary += f" ({len(internal_links)} internal, {len(external_links)} external, {len(image_links)} images, {len(document_links)} documents)"
+
+                    return format_research_analysis_markdown(
+                        {
+                            "topic": f"Link Extraction: {url}",
+                            "summary": result_summary,
+                            "key_findings": key_findings,
+                            "link_statistics": {
+                                "total_links": len(all_links),
+                                "internal_links": len(internal_links),
+                                "external_links": len(external_links),
+                                "image_links": len(image_links),
+                                "document_links": len(document_links),
+                                "extracted_type": link_type,
+                                "extracted_count": len(selected_links),
+                            },
+                            "status": "success",
+                        },
+                        "Content Operations",
+                    )
+
+                except Exception as extract_error:
+                    logger.error(f"Link extraction failed: {extract_error}")
+                    return format_research_analysis_markdown(
+                        {"topic": f"Link Extraction from {url}", "status": "error", "error": str(extract_error)},
+                        "Content Operations",
+                    )
 
             else:
                 raise ValueError(f"Unknown operation: {operation}")

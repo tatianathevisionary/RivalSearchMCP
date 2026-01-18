@@ -8,7 +8,6 @@ from datetime import datetime
 
 from fastmcp import FastMCP
 from fastmcp import Context
-from fastmcp.server.context import Context
 from pydantic import Field
 
 from src.logging.logger import logger
@@ -94,19 +93,7 @@ def register_search_tools(mcp: FastMCP):
         if not valid_depth:
             await ctx.error(f"Parameter validation failed: {depth_result}")
             return f"❌ **Error:** {depth_result}"
-        """
-        Multi-engine search across Yahoo and DuckDuckGo with comprehensive content extraction.
 
-        This tool searches across multiple engines simultaneously:
-        - Yahoo Search: Traditional web search engine
-        - DuckDuckGo Search: Privacy-focused search engine
-
-        Features:
-        - Parallel searching across engines
-        - Intelligent fallback if one engine fails
-        - Content extraction and link following
-        - Clean markdown-formatted results
-        """
         return await multi_search(
             query=query,
             ctx=ctx,

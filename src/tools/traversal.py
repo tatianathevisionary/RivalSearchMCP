@@ -14,6 +14,7 @@ from src.core.traverse import (
 )
 from src.logging.logger import logger
 from src.utils import clean_html_to_markdown
+from src.utils.markdown_formatter import format_traversal_markdown
 
 
 def register_traversal_tools(mcp: FastMCP):
@@ -26,7 +27,7 @@ def register_traversal_tools(mcp: FastMCP):
         max_pages: int = 5,
         max_depth: int = 2,
         generate_llms_txt: bool = False,
-    ) -> dict:
+    ) -> str:
         """
         Comprehensive website traversal with different modes for different use cases.
 
@@ -46,13 +47,13 @@ def register_traversal_tools(mcp: FastMCP):
             elif mode == "map":
                 result = await map_website_structure(url, max_pages=max_pages)
             else:
-                return {
+                return format_traversal_markdown({
                     "success": False,
                     "pages": [],
                     "summary": f"Invalid mode: {mode}. Use 'research', 'docs', or 'map'",
                     "total_pages": 0,
                     "source": url,
-                }
+                })
 
             # Convert result to simple dict format with clean content
             pages = []
@@ -102,15 +103,15 @@ This file contains information about {url} for Large Language Models.
 
                 response["llms_txt"] = llms_txt_content
 
-            return response
+            return format_traversal_markdown(response)
 
         except Exception as e:
             logger.error(f"Website traversal failed for {url}: {e}")
-            return {
+            return format_traversal_markdown({
                 "success": False,
                 "pages": [],
                 "summary": f"Error: {str(e)}",
                 "total_pages": 0,
                 "source": url,
                 "mode": mode,
-            }
+            })

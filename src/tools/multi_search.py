@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime
 
 from fastmcp import Context
-from fastmcp.server.context import Context
 from src.core.search.core.multi_engines import MultiSearchResult
 from src.core.search.engines.duckduckgo.duckduckgo_engine import DuckDuckGoSearchEngine
 from src.core.search.engines.yahoo.yahoo_engine import YahooSearchEngine

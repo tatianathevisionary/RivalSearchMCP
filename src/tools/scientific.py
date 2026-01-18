@@ -6,7 +6,6 @@ Provides academic paper search and dataset discovery using refactored modules.
 from typing import List, Dict, Optional, Any
 from fastmcp import FastMCP
 from fastmcp import Context
-from fastmcp.server.context import Context
 from pydantic import Field
 from typing_extensions import Annotated
 

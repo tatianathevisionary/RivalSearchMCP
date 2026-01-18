@@ -4,6 +4,7 @@ Tests all 8 tools with unit tests, integration tests, and proper mocking.
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
 from typing import Dict, Any
@@ -19,7 +20,7 @@ from fastmcp.client import Client
 from server import app
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def mcp_client():
     """Fixture providing a FastMCP client connected to RivalSearchMCP server."""
     async with Client(app) as client:
@@ -29,35 +30,28 @@ async def mcp_client():
 @pytest.fixture
 def mock_search_engines():
     """Mock search engine responses."""
+    mock_result = MagicMock()
+    mock_result.to_dict.return_value = {
+        "title": "Python Programming Guide",
+        "url": "https://example.com/python",
+        "description": "Learn Python programming",
+        "engine": "duckduckgo",
+        "position": 1,
+    }
+
     mock_duckduckgo = MagicMock()
-    mock_duckduckgo.search.return_value = [
-        {
-            "title": "Python Programming Guide",
-            "url": "https://example.com/python",
-            "description": "Learn Python programming",
-            "engine": "duckduckgo",
-            "position": 1,
-        }
-    ]
+    mock_duckduckgo.search = AsyncMock(return_value=[mock_result])
 
     mock_yahoo = MagicMock()
-    mock_yahoo.search.return_value = [
-        {
-            "title": "Yahoo Python Tutorial",
-            "url": "https://yahoo.example.com/python",
-            "description": "Python tutorial on Yahoo",
-            "engine": "yahoo",
-            "position": 1,
-        }
-    ]
+    mock_yahoo.search = AsyncMock(return_value=[mock_result])
 
     with (
         patch(
-            "src.core.search.engines.duckduckgo.duckduckgo_engine.DuckDuckGoSearchEngine",
+            "src.tools.multi_search.DuckDuckGoSearchEngine",
             return_value=mock_duckduckgo,
         ),
         patch(
-            "src.core.search.engines.yahoo.yahoo_engine.YahooSearchEngine",
+            "src.tools.multi_search.YahooSearchEngine",
             return_value=mock_yahoo,
         ),
     ):
@@ -95,54 +89,28 @@ def mock_trends_api():
 @pytest.fixture
 def mock_scientific_search():
     """Mock scientific research APIs."""
-    with (
-        patch("src.tools.scientific.search_arxiv_robust") as mock_arxiv,
-        patch("src.tools.scientific.search_semantic_scholar_robust") as mock_ss,
-        patch("src.tools.scientific.search_pubmed_robust") as mock_pubmed,
-        patch("src.tools.scientific.search_kaggle_datasets_robust") as mock_kaggle,
-        patch("src.tools.scientific.search_huggingface_datasets_robust") as mock_hf,
-    ):
-        mock_arxiv.return_value = [
-            {
-                "title": "Test Paper",
-                "authors": ["Author"],
-                "year": 2024,
-                "source": "arxiv",
-            }
-        ]
-        mock_ss.return_value = [
-            {
-                "title": "Semantic Scholar Paper",
-                "authors": ["Author"],
-                "year": 2024,
-                "source": "semantic_scholar",
-            }
-        ]
-        mock_pubmed.return_value = [
-            {
-                "title": "Medical Paper",
-                "authors": ["Author"],
-                "year": 2024,
-                "source": "pubmed",
-            }
-        ]
-        mock_kaggle.return_value = [
-            {"title": "Test Dataset", "description": "Test data", "source": "kaggle"}
-        ]
-        mock_hf.return_value = [
-            {
-                "title": "HF Dataset",
-                "description": "Hugging Face data",
-                "source": "huggingface",
-            }
-        ]
+    mock_academic = MagicMock()
+    mock_academic.search_academic_papers = AsyncMock(return_value=[
+        {
+            "title": "Test Paper",
+            "authors": ["Author"],
+            "year": 2024,
+            "source": "semantic_scholar",
+        }
+    ])
 
+    mock_dataset = MagicMock()
+    mock_dataset.discover_datasets = AsyncMock(return_value=[
+        {"title": "Test Dataset", "description": "Test data", "source": "kaggle"}
+    ])
+
+    with (
+        patch("src.tools.scientific.AcademicSearchOrchestrator", return_value=mock_academic),
+        patch("src.tools.scientific.DatasetDiscoveryOrchestrator", return_value=mock_dataset),
+    ):
         yield {
-            "arxiv": mock_arxiv,
-            "semantic_scholar": mock_ss,
-            "pubmed": mock_pubmed,
-            "kaggle": mock_kaggle,
-            "huggingface": mock_hf,
+            "academic": mock_academic,
+            "dataset": mock_dataset,
         }
 
 
@@ -450,7 +418,7 @@ class TestResearchWorkflowTool:
                 "research_workflow",
                 {
                     "topic": "test research topic",
-                    "max_sources": 3,
+                    "max_sources": 5,
                     "research_depth": "basic",
                     "enable_ai_insights": False,
                 },
@@ -489,7 +457,7 @@ class TestResearchWorkflowTool:
                 "research_workflow",
                 {
                     "topic": "AI trends",
-                    "max_sources": 2,
+                    "max_sources": 5,
                     "research_depth": "comprehensive",
                     "enable_ai_insights": True,
                     "ai_model": "test-model",
@@ -521,7 +489,7 @@ class TestResearchTopicTool:
 
             result = await mcp_client.call_tool(
                 "research_topic",
-                {"topic": "test topic", "max_sources": 3, "include_analysis": True},
+                {"topic": "test topic", "max_sources": 5, "include_analysis": True},
             )
 
             assert result.content
@@ -645,7 +613,7 @@ class TestIntegrationScenarios:
                 "research_workflow",
                 {
                     "topic": "comprehensive test topic",
-                    "max_sources": 3,
+                    "max_sources": 5,
                     "include_trends": True,
                     "include_website_analysis": True,
                     "research_depth": "comprehensive",

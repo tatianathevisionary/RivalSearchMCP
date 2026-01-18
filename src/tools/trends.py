@@ -1,4 +1,4 @@
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from datetime import datetime
 
 import pandas as pd
@@ -8,6 +8,7 @@ from typing_extensions import Annotated
 
 from src.core.trends import GoogleTrendsAPI
 from src.logging.logger import logger
+from src.utils.markdown_formatter import format_trends_markdown
 
 """
 Trends analysis tools for FastMCP server.
@@ -18,13 +19,13 @@ Provides Google Trends data analysis and export capabilities.
 def register_trends_tools(mcp: FastMCP):
     @mcp.tool
     async def trends_core(
-        operation,
-        keywords,
-        timeframe="today 7-d",
-        geo="",
-        gprop="",
-        resolution="COUNTRY",
-    ):
+        operation: str,
+        keywords: List[str],
+        timeframe: str = "today 7-d",
+        geo: str = "",
+        gprop: str = "",
+        resolution: str = "COUNTRY",
+    ) -> str:
         """
         Consolidated trends core: search, related, regional, compare operations.
 
@@ -43,43 +44,47 @@ def register_trends_tools(mcp: FastMCP):
 
             if operation == "search":
                 data = api.search_trends(keywords, timeframe, geo, gprop)
-                return {
+                result = {
                     "success": True,
                     "data": data.to_dict("records")
                     if hasattr(data, "to_dict")
                     else data,
                 }
+                return format_trends_markdown(result)
 
             elif operation == "related":
                 queries = api.get_related_queries(keywords, timeframe, geo)
                 topics = api.get_related_topics(keywords, timeframe, geo)
-                return {
+                result = {
                     "success": True,
                     "related_queries": queries,
                     "related_topics": topics,
                 }
+                return format_trends_markdown(result)
 
             elif operation == "interest_over_time":
                 data = api.get_interest_over_time(keywords, timeframe, geo, gprop)
-                return {
+                result = {
                     "success": True,
                     "data": data.to_dict("records")
                     if hasattr(data, "to_dict")
                     else data,
                 }
+                return format_trends_markdown(result)
 
             elif operation == "regional":
                 region_data = api.get_interest_by_region(
                     keywords, resolution, timeframe, geo
                 )
                 searches = api.get_trending_searches(geo or "united_states")
-                return {
+                result = {
                     "success": True,
                     "interest_by_region": region_data.to_dict("records")
                     if hasattr(region_data, "to_dict")
                     else region_data,
                     "trending_searches": searches,
                 }
+                return format_trends_markdown(result)
 
             elif operation == "compare":
                 time_data = api.get_interest_over_time(keywords, timeframe, geo, "")
@@ -87,7 +92,7 @@ def register_trends_tools(mcp: FastMCP):
                 region_data = api.get_interest_by_region(
                     keywords, "COUNTRY", timeframe, geo
                 )
-                return {
+                result = {
                     "success": True,
                     "interest_over_time": time_data.to_dict("records")
                     if hasattr(time_data, "to_dict")
@@ -97,22 +102,25 @@ def register_trends_tools(mcp: FastMCP):
                     if hasattr(region_data, "to_dict")
                     else region_data,
                 }
+                return format_trends_markdown(result)
 
             else:
-                return {"success": False, "error": f"Unknown operation: {operation}"}
+                result = {"success": False, "error": f"Unknown operation: {operation}"}
+                return format_trends_markdown(result)
 
         except Exception as e:
             logger.error(f"Trends core failed: {e}")
-            return {"success": False, "error": str(e)}
+            result = {"success": False, "error": str(e)}
+            return format_trends_markdown(result)
 
     @mcp.tool
     async def trends_export(
-        keywords,
-        timeframe="today 7-d",
-        geo="",
-        format="csv",
-        filename=None,
-    ):
+        keywords: List[str],
+        timeframe: str = "today 7-d",
+        geo: str = "",
+        format: str = "csv",
+        filename: Optional[str] = None,
+    ) -> str:
         """
         Export trends data to various formats.
 
@@ -130,7 +138,7 @@ def register_trends_tools(mcp: FastMCP):
             data = api.search_trends(keywords, timeframe, geo, "")
 
             if data is None or len(data) == 0:
-                return {"success": False, "error": "No data found"}
+                return "❌ **Error:** No trends data found to export"
 
             if not filename:
                 filename = (
@@ -141,8 +149,11 @@ def register_trends_tools(mcp: FastMCP):
                 data.to_dict("records") if hasattr(data, "to_dict") else data
             )
 
+            rows_exported = len(df)
+
             if format == "csv":
                 df.to_csv(filename, index=False)
+                file_info = f"CSV file with {rows_exported} rows"
             elif format == "json":
                 import json
 
@@ -153,15 +164,31 @@ def register_trends_tools(mcp: FastMCP):
                         indent=2,
                         default=str,
                     )
+                file_info = f"JSON file with {rows_exported} records"
             elif format == "sql":
                 import sqlite3
 
                 conn = sqlite3.connect(f"{filename}.db")
                 df.to_sql("trends_data", conn, if_exists="replace", index=False)
                 conn.close()
+                file_info = f"SQLite database with {rows_exported} rows in 'trends_data' table"
+            else:
+                return f"❌ **Error:** Unsupported format '{format}'. Use 'csv', 'json', or 'sql'"
 
-            return {"success": True, "filename": filename, "format": format}
+            # Format success message
+            return f"""✅ **Trends Data Exported Successfully**
+
+**File:** `{filename}`
+**Format:** {format.upper()}
+**Data:** {file_info}
+**Keywords:** {', '.join(keywords)}
+**Timeframe:** {timeframe}
+{f"**Geographic Region:** {geo}" if geo else ""}
+
+Your trends data has been exported and is ready to use in your analysis tools.
+
+*Export completed on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"""
 
         except Exception as e:
             logger.error(f"Export failed: {e}")
-            return {"success": False, "error": str(e)}
+            return f"❌ **Error:** Export failed - {str(e)}"

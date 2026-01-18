@@ -65,12 +65,18 @@ mcp_*.log
 *.bak
 *.backup
 
-# Claude AI files
+# Claude AI files - ignore entire .claude folder
 .claude/
 .opencode/
 opencode.json
 .claude.json
 .claude.json.backup
+
+# MCP client configuration (contains sensitive tokens)
+.mcp.json
+mcp.json
+
+# Keep agent system in git (agents, commands, skills, hooks, docs)
 
 # OS generated files
 .DS_Store
