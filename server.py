@@ -19,6 +19,9 @@ from src.tools.news import register_news_tools
 from src.tools.github_tool import register_github_tools
 from src.tools.pdf_tool import register_pdf_tools
 
+# Import prompts
+from src.prompts import register_prompts
+
 # Import middleware
 from src.middleware import register_middleware
 
@@ -123,6 +126,9 @@ register_news_tools(app)
 register_github_tools(app)
 register_pdf_tools(app)
 # OCR functionality is integrated into retrieval tools - no separate registration needed
+
+# Register prompts
+register_prompts(app)
 
 # Register custom routes
 register_custom_routes(app)
