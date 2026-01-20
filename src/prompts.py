@@ -4,7 +4,6 @@ Guides users on effective tool usage patterns.
 """
 
 from fastmcp import FastMCP
-from fastmcp.prompts.prompt import Message
 
 
 def register_prompts(mcp: FastMCP):
@@ -24,8 +23,9 @@ def register_prompts(mcp: FastMCP):
             depth: Research depth (basic, comprehensive, expert)
         """
         return [
-            Message(
-                f"""I need you to conduct comprehensive research on: {topic}
+            {
+                "role": "user",
+                "content": f"""I need you to conduct comprehensive research on: {topic}
 
 Use the research_agent tool with these parameters:
 - topic: "{topic}"
@@ -47,9 +47,8 @@ After receiving the research report, analyze it and provide:
 - Key findings summary
 - Important insights
 - Recommendations based on the research
-- Areas that need further investigation""",
-                role="user"
-            )
+- Areas that need further investigation"""
+            }
         ]
     
     @mcp.prompt
@@ -90,7 +89,7 @@ Finally, analyze all the information gathered and provide:
 - Recent developments from news
 - Comprehensive synthesis of all sources""")
         
-        return [Message("\n".join(steps), role="user")]
+        return [{"role": "user", "content": "\n".join(steps)}]
     
     @mcp.prompt
     def deep_content_analysis(url: str, extract_documents: bool = False) -> list:
@@ -136,7 +135,7 @@ Finally, provide:
 - Document summaries (if applicable)
 - Comprehensive site analysis"""
         
-        return [Message(prompt, role="user")]
+        return [{"role": "user", "content": prompt}]
     
     @mcp.prompt
     def academic_literature_review(research_question: str, max_papers: int = 10) -> list:
@@ -150,8 +149,9 @@ Finally, provide:
             max_papers: Maximum number of papers to review
         """
         return [
-            Message(
-                f"""Conduct an academic literature review on: {research_question}
+            {
+                "role": "user",
+                "content": f"""Conduct an academic literature review on: {research_question}
 
 Follow this research workflow:
 
@@ -176,7 +176,6 @@ Provide a comprehensive literature review including:
 - Key papers and their contributions
 - Common methodologies and approaches
 - Research gaps and future directions
-- Citations and references""",
-                role="user"
-            )
+- Citations and references"""
+            }
         ]
