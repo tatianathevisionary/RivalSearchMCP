@@ -68,40 +68,67 @@ Or add this configuration manually:
 **For Claude Code:**
 - Use the built-in MCP management: `claude mcp add RivalSearchMCP --url https://RivalSearchMCP.fastmcp.app/mcp`
 
-### Local Development
+### Local Installation with FastMCP CLI
 
-If you want to run the server locally or contribute:
+**Prerequisites:**
+```bash
+# Install UV (modern Python package manager)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/damionrashford/RivalSearchMCP.git
-   cd RivalSearchMCP
-   ```
+# Install FastMCP CLI (optional but recommended)
+uv tool install fastmcp
+```
 
-2. **Install dependencies:**
-   ```bash
-   uv sync
-   ```
+**Method 1: One-Command Install (Easiest)**
+```bash
+# Clone repository
+git clone https://github.com/damionrashford/RivalSearchMCP.git
+cd RivalSearchMCP
 
-3. **Run the server:**
-   ```bash
-   # Runs in stdio mode by default (compatible with Claude/IDE MCP clients)
-   uv run python server.py
-   ```
+# Install directly to your MCP client:
+fastmcp install claude-desktop server.py   # For Claude Desktop
+fastmcp install cursor server.py           # For Cursor
+fastmcp install claude-code server.py      # For Claude Code
+```
 
-   To connect your local instance to Claude Desktop or Cursor, add this to your MCP config:
-   ```json
-   "RivalSearchMCP-local": {
-     "command": "uv",
-     "args": [
-       "--directory",
-       "/absolute/path/to/RivalSearchMCP",
-       "run",
-       "python",
-       "server.py"
-     ]
-   }
-   ```
+**Method 2: Quick Run (No Installation)**
+```bash
+git clone https://github.com/damionrashford/RivalSearchMCP.git
+cd RivalSearchMCP
+
+# Run directly with FastMCP CLI
+fastmcp run server.py  # Auto-detects entrypoint, uses STDIO
+
+# Or run in HTTP mode for testing
+fastmcp run server.py --transport http --port 8000
+```
+
+**Method 3: Development with Inspector**
+```bash
+# Run with MCP Inspector for testing
+fastmcp dev server.py
+```
+
+**Method 4: Manual UV Setup**
+```bash
+git clone https://github.com/damionrashford/RivalSearchMCP.git
+cd RivalSearchMCP
+uv sync
+
+# Add to Claude Desktop or Cursor config:
+{
+  "RivalSearchMCP": {
+    "command": "uv",
+    "args": [
+      "--directory",
+      "/full/path/to/RivalSearchMCP",
+      "run",
+      "python",
+      "server.py"
+    ]
+  }
+}
+```
 
 ## 🛠 Available Tools (10 Total)
 
