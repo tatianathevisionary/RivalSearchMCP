@@ -21,7 +21,7 @@ def register_traversal_tools(mcp: FastMCP):
     """Register all traversal-related tools."""
 
     @mcp.tool
-    async def traverse_website(
+    async def map_website(
         url: str,
         mode: Literal["research", "docs", "map"] = "research",
         max_pages: int = 5,
@@ -29,7 +29,7 @@ def register_traversal_tools(mcp: FastMCP):
         generate_llms_txt: bool = False,
     ) -> str:
         """
-        Comprehensive website traversal with different modes for different use cases.
+        Map and explore websites with different modes for different use cases.
 
         Args:
             url: Website URL to traverse

@@ -10,25 +10,22 @@ from .core import WebsiteTraverser
 
 
 async def research_topic(
-    topic: str, max_pages: int = 20, max_depth: int = 2
+    url: str, max_pages: int = 20, max_depth: int = 2
 ) -> List[Dict[str, Any]]:
     """
     Research a topic by traversing relevant websites.
 
     Args:
-        topic: Topic to research
+        url: URL to start traversal from (changed from topic to match actual usage)
         max_pages: Maximum pages to visit
         max_depth: Maximum traversal depth
 
     Returns:
         List of page data
     """
-    # This would typically start with a search to find relevant URLs
-    # For now, we'll use a placeholder
-    start_url = f"https://en.wikipedia.org/wiki/{topic.replace(' ', '_')}"
-
+    # Use the provided URL directly for traversal
     traverser = WebsiteTraverser()
-    return await traverser.traverse_website(start_url, max_depth, max_pages)
+    return await traverser.traverse_website(url, max_depth, max_pages)
 
 
 async def explore_documentation(

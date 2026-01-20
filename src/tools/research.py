@@ -18,8 +18,8 @@ def register_research_tools(mcp: FastMCP):
     executor = ResearchWorkflowExecutor()
 
     @mcp.tool(
-        name="research_workflow",
-        description="AI-enhanced research workflow using OpenRouter with tool calling capabilities",
+        name="research_agent",
+        description="AI research agent using OpenRouter with autonomous tool calling capabilities",
         tags={"research", "workflow", "ai", "openrouter", "tool_calling"},
         meta={
             "version": "3.0",
@@ -38,7 +38,7 @@ def register_research_tools(mcp: FastMCP):
             "idempotentHint": False,
         },
     )
-    async def research_workflow(
+    async def research_agent(
         ctx: Context,
         topic: Annotated[
             str,

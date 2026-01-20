@@ -239,11 +239,13 @@ class SecurityMiddleware(Middleware):
     def _is_suspicious(self, context: MiddlewareContext) -> bool:
         """Check if request contains suspicious patterns."""
         message_str = str(context.message).lower()
+        # Only block actual dangerous patterns, not benign mentions
         suspicious_patterns = [
-            "script", "javascript", "eval", "exec", "system",
-            "rm -rf", "drop table", "union select",
-            "<script", "<iframe", "<object", "<embed",
-            "vbscript:", "data:", "file://"
+            "<script", "<iframe", "<object", "<embed",  # HTML injection
+            "vbscript:", "data:text/html", "file://",  # Protocol injection
+            "rm -rf", "drop table", "union select",    # Command/SQL injection
+            "eval(", "exec(", "system(",                # Code execution
+            "'; drop", "\"; drop", "' or '1'='1"       # SQL injection patterns
         ]
         return any(pattern in message_str for pattern in suspicious_patterns)
 
@@ -279,7 +281,7 @@ def register_middleware(mcp) -> None:
     security_middleware = SecurityMiddleware(block_suspicious_requests=True)
     mcp.add_middleware(security_middleware)
     mcp.add_middleware(ErrorHandlingMiddleware(include_traceback=False, transform_errors=True))
-    mcp.add_middleware(RateLimitingMiddleware(max_requests_per_minute=120, per_client=True))
+    # RateLimitingMiddleware REMOVED - Not needed for controlled deployment
     mcp.add_middleware(PerformanceMonitoringMiddleware())
     mcp.add_middleware(TimingMiddleware(log_slow_operations=True, slow_threshold_ms=2000.0))
     mcp.add_middleware(LoggingMiddleware(include_payloads=True, max_payload_length=500))

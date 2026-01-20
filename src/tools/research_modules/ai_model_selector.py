@@ -1,103 +1,82 @@
 """
 AI model selection utilities for research workflows.
-Handles OpenRouter model selection with fallback logic.
+Handles OpenRouter model selection with dynamic discovery and fallback logic.
 """
 
 import os
 import requests
-from typing import Optional
+from typing import List
 
 from src.logging.logger import logger
 
 
-def get_best_free_model_with_tools() -> str:
+def get_free_models_with_tools(api_key: str) -> List[str]:
     """
-    Dynamically fetch the best available free OpenRouter model that supports tool calling.
+    Get free OpenRouter models with tool support.
+    Primary model is HARDCODED (meta-llama), fallbacks are dynamically fetched.
+    
+    Returns list with meta-llama first, then dynamic fallbacks.
 
-    Uses OpenRouter API directly to find free models with tool support.
-    Prioritizes known good models, then discovers others dynamically.
+    Args:
+        api_key: OpenRouter API key
 
     Returns:
-        Single best model ID that is free and supports tools
+        List of model IDs with primary model first, then fallbacks
+        Maximum 3 models (OpenRouter limit)
     """
-    custom_model = os.getenv("OPENROUTER_MODEL", "")
-    if custom_model:
-        logger.info(f"Using custom OpenRouter model from env: {custom_model}")
-        return custom_model
-
-    # Known free models that support tool calling (from OpenRouter current list)
-    priority_models = [
-        "meta-llama/llama-3.3-70b-instruct:free",  # Best performance, large context
-        "mistralai/mistral-7b-instruct:free",  # Good performance, confirmed tool support
-        "google/gemma-3-27b-it:free",  # Large context, modern architecture
-        "meta-llama/llama-3.1-8b-instruct:free",  # Legacy but reliable
-        "microsoft/wizardlm-2-8x22b:free",  # Good performance
-    ]
-
+    # HARDCODED PRIMARY MODEL
+    primary_model = "meta-llama/llama-3.3-70b-instruct:free"
+    
     try:
-        # Use requests to call OpenRouter API directly
-        api_key = os.getenv("OPENROUTER_API_KEY")
-        if not api_key:
-            logger.warning("No OPENROUTER_API_KEY found, using priority fallback")
-            return priority_models[0]
-
+        # Step 1: Get all models with tool support from OpenRouter API
+        logger.info("Fetching free models with tool support from OpenRouter...")
         headers = {"Authorization": f"Bearer {api_key}"}
-        response = requests.get("https://openrouter.ai/api/v1/models", headers=headers, timeout=10)
+        response = requests.get(
+            "https://openrouter.ai/api/v1/models?supported_parameters=tools",
+            headers=headers,
+            timeout=10
+        )
         response.raise_for_status()
 
         data = response.json()
         if "data" not in data:
-            logger.warning("Invalid API response, using priority fallback")
-            return priority_models[0]
+            raise ValueError("Invalid API response format")
 
-        # Create lookup of available models
-        available_models = {model["id"]: model for model in data["data"]}
-
-        # First, try priority models that are available and support tools
-        for model_id in priority_models:
-            if model_id in available_models:
-                model = available_models[model_id]
-
-                # Check if model is free (pricing.prompt == "0" and pricing.completion == "0")
-                pricing = model.get("pricing", {})
-                is_free = pricing.get("prompt") == "0" and pricing.get("completion") == "0"
-
-                # Check if model supports tools
-                supported_params = model.get("supported_parameters", [])
-                supports_tools = "tools" in supported_params
-
-                if is_free and supports_tools:
-                    logger.info(f"Selected priority free model with tools: {model_id}")
-                    return model_id
-
-        # If no priority models work, search for any free model with tools
-        free_tool_models = []
-        for model in data["data"]:
+        # Step 2: Filter for FREE models (pricing.prompt == "0" AND pricing.completion == "0")
+        all_models = data["data"]
+        free_models = []
+        
+        for model in all_models:
             pricing = model.get("pricing", {})
-            is_free = pricing.get("prompt") == "0" and pricing.get("completion") == "0"
-            supported_params = model.get("supported_parameters", [])
-            supports_tools = "tools" in supported_params
-
-            if is_free and supports_tools:
-                model_id = model["id"]
-                # Try to get throughput info for ranking
-                top_provider = model.get("top_provider", {})
-                throughput = (
-                    top_provider.get("throughput_last_30m", {}).get("p50", 0) if top_provider else 0
-                )
-                free_tool_models.append((model_id, throughput))
-
-        if free_tool_models:
-            # Sort by throughput (highest first), then by model name for consistency
-            free_tool_models.sort(key=lambda x: (-x[1], x[0]))
-            best_model = free_tool_models[0][0]
-            logger.info(f"Selected best available free model with tools: {best_model}")
-            return best_model
-
-        # If no models found, use priority fallback
-        logger.warning("No free models with tool support found, using priority fallback")
-        return priority_models[0]
+            is_free = (
+                pricing.get("prompt") == "0" and 
+                pricing.get("completion") == "0"
+            )
+            model_id = model.get("id", "")
+            
+            # Skip primary model (we'll add it first manually)
+            if is_free and model_id != primary_model:
+                free_models.append(model)
+        
+        logger.info(f"Found {len(free_models)} free fallback models with tool support")
+        
+        # Step 3: Sort by context_length DESC (largest/best first)
+        free_models.sort(
+            key=lambda m: m.get("context_length", 0) or 0,
+            reverse=True
+        )
+        
+        # Step 4: Build final list - primary first, then top 2 fallbacks (OpenRouter max = 3)
+        fallback_ids = [model["id"] for model in free_models[:2]]
+        final_models = [primary_model] + fallback_ids
+        
+        logger.info(f"Primary model (hardcoded): {final_models[0]}")
+        logger.info(f"Fallback models (dynamic): {fallback_ids}")
+        
+        return final_models
 
     except Exception as e:
-        logger.warning(f"Could not fetch dynamic models: {e}. Using priority fallback.")
-        return priority_models[0]
+        logger.error(f"Failed to fetch free models: {e}")
+        # Emergency fallback: return only primary
+        logger.warning("Using emergency fallback - primary model only")
+        return [primary_model]

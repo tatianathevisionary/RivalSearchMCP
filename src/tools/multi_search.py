@@ -11,6 +11,7 @@ from fastmcp import Context
 from src.core.search.core.multi_engines import MultiSearchResult
 from src.core.search.engines.duckduckgo.duckduckgo_engine import DuckDuckGoSearchEngine
 from src.core.search.engines.yahoo.yahoo_engine import YahooSearchEngine
+from src.core.search.engines.wikipedia.wikipedia_engine import WikipediaSearchEngine
 from src.utils.markdown_formatter import format_multi_search_markdown
 from src.logging.logger import logger
 
@@ -22,8 +23,9 @@ class MultiSearchOrchestrator:
         self.engines = {
             "duckduckgo": DuckDuckGoSearchEngine(),
             "yahoo": YahooSearchEngine(),
+            "wikipedia": WikipediaSearchEngine(),
         }
-        self.engine_order = ["duckduckgo", "yahoo"]  # Priority order
+        self.engine_order = ["duckduckgo", "yahoo", "wikipedia"]  # Priority order
 
     async def search_all_engines(
         self,
@@ -32,10 +34,11 @@ class MultiSearchOrchestrator:
         extract_content: bool = True,
         follow_links: bool = True,
         max_depth: int = 2,
-        fallback_on_failure: bool = True,
     ) -> Dict[str, Any]:
         """
-        Search across all engines with fallback support.
+        Search across ALL engines concurrently with deduplication.
+        
+        All engines run simultaneously, results are combined and deduplicated by URL.
 
         Args:
             query: Search query
@@ -43,72 +46,94 @@ class MultiSearchOrchestrator:
             extract_content: Whether to extract full page content
             follow_links: Whether to follow internal links
             max_depth: Maximum depth for link following
-            fallback_on_failure: Whether to try other engines if one fails
 
         Returns:
-            Dictionary with results from all engines
+            Dictionary with deduplicated results from all engines
         """
+        logger.info(f"Starting concurrent search across {len(self.engines)} engines for: {query}")
+        
+        # Search all engines concurrently
+        search_tasks = []
+        for engine_name, engine in self.engines.items():
+            task = engine.search(
+                query=query,
+                num_results=num_results,
+                extract_content=extract_content,
+                follow_links=follow_links,
+                max_depth=max_depth,
+            )
+            search_tasks.append((engine_name, task))
+        
+        # Execute all searches in parallel
+        search_results = await asyncio.gather(
+            *[task for _, task in search_tasks],
+            return_exceptions=True
+        )
+        
+        # Process results from each engine
         results = {}
+        all_results = []
         successful_engines = 0
-        total_results = 0
-
-        for engine_name in self.engine_order:
-            try:
-                logger.info(f"Searching {engine_name} for: {query}")
-                engine = self.engines[engine_name]
-
-                engine_results = await engine.search(
-                    query=query,
-                    num_results=num_results,
-                    extract_content=extract_content,
-                    follow_links=follow_links,
-                    max_depth=max_depth,
-                )
-
-                if engine_results:
-                    results[engine_name] = {
-                        "status": "success",
-                        "count": len(engine_results),
-                        "results": [result.to_dict() for result in engine_results],
-                        "timestamp": datetime.now().isoformat(),
-                    }
-                    successful_engines += 1
-                    total_results += len(engine_results)
-                    logger.info(
-                        f"{engine_name} search successful: {len(engine_results)} results"
-                    )
-                else:
-                    results[engine_name] = {
-                        "status": "no_results",
-                        "count": 0,
-                        "results": [],
-                        "timestamp": datetime.now().isoformat(),
-                    }
-                    logger.warning(f"{engine_name} returned no results")
-
-            except Exception as e:
-                logger.error(f"{engine_name} search failed: {e}")
+        
+        for i, (engine_name, _) in enumerate(search_tasks):
+            engine_result = search_results[i]
+            
+            if isinstance(engine_result, Exception):
+                logger.error(f"{engine_name} search failed: {engine_result}")
                 results[engine_name] = {
                     "status": "failed",
-                    "error": str(e),
+                    "error": str(engine_result),
                     "count": 0,
                     "results": [],
                     "timestamp": datetime.now().isoformat(),
                 }
-
-                if not fallback_on_failure:
-                    break
+            elif engine_result:
+                results[engine_name] = {
+                    "status": "success",
+                    "count": len(engine_result),
+                    "results": [result.to_dict() for result in engine_result],
+                    "timestamp": datetime.now().isoformat(),
+                }
+                successful_engines += 1
+                all_results.extend(engine_result)
+                logger.info(f"{engine_name} search successful: {len(engine_result)} results")
+            else:
+                results[engine_name] = {
+                    "status": "no_results",
+                    "count": 0,
+                    "results": [],
+                    "timestamp": datetime.now().isoformat(),
+                }
+        
+        # Deduplicate by URL
+        seen_urls = set()
+        deduplicated_results = []
+        for result in all_results:
+            url = result.url.lower().strip()
+            if url not in seen_urls:
+                seen_urls.add(url)
+                deduplicated_results.append(result)
+        
+        logger.info(f"Deduplicated {len(all_results)} results to {len(deduplicated_results)} unique results")
 
         # Generate summary
         summary = {
             "query": query,
-            "engines_tested": len(self.engine_order),
+            "engines_searched": len(self.engines),
             "successful_engines": successful_engines,
-            "failed_engines": len(self.engine_order) - successful_engines,
-            "total_results": total_results,
+            "total_results": len(deduplicated_results),
+            "results_before_dedup": len(all_results),
             "extract_content": extract_content,
             "follow_links": follow_links,
             "max_depth": max_depth,
+            "timestamp": datetime.now().isoformat(),
+        }
+
+        # Add deduplicated results to the response
+        results["deduplicated"] = {
+            "status": "success",
+            "count": len(deduplicated_results),
+            "results": [result.to_dict() for result in deduplicated_results],
             "timestamp": datetime.now().isoformat(),
         }
 
@@ -123,69 +148,15 @@ class MultiSearchOrchestrator:
         max_depth: int = 2,
     ) -> Dict[str, Any]:
         """
-        Search with intelligent fallback - if primary engine fails, try others.
-
-        Args:
-            query: Search query
-            num_results: Number of results per engine
-            extract_content: Whether to extract full page content
-            follow_links: Whether to follow internal links
-            max_depth: Maximum depth for link following
-
-        Returns:
-            Dictionary with results from working engines
+        Deprecated - now just calls search_all_engines.
+        Kept for backward compatibility.
         """
-        # Try DuckDuckGo first (most reliable)
-        try:
-            logger.info(f"Trying primary engine (DuckDuckGo) for: {query}")
-            duckduckgo_engine = self.engines["duckduckgo"]
-            duckduckgo_results = await duckduckgo_engine.search(
-                query=query,
-                num_results=num_results,
-                extract_content=extract_content,
-                follow_links=follow_links,
-                max_depth=max_depth,
-            )
-
-            if duckduckgo_results:
-                logger.info(
-                    f"Primary engine (DuckDuckGo) successful: {len(duckduckgo_results)} results"
-                )
-                return {
-                    "primary_engine": "duckduckgo",
-                    "status": "primary_success",
-                    "results": {
-                        "duckduckgo": {
-                            "status": "success",
-                            "count": len(duckduckgo_results),
-                            "results": [
-                                result.to_dict() for result in duckduckgo_results
-                            ],
-                            "timestamp": datetime.now().isoformat(),
-                        }
-                    },
-                    "summary": {
-                        "query": query,
-                        "primary_engine": "duckduckgo",
-                        "total_results": len(duckduckgo_results),
-                        "extract_content": extract_content,
-                        "follow_links": follow_links,
-                        "max_depth": max_depth,
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                }
-        except Exception as e:
-            logger.warning(f"Primary engine (DuckDuckGo) failed: {e}")
-
-        # Fallback to other engines
-        logger.info("Primary engine failed, trying fallback engines...")
         return await self.search_all_engines(
             query=query,
             num_results=num_results,
             extract_content=extract_content,
             follow_links=follow_links,
             max_depth=max_depth,
-            fallback_on_failure=True,
         )
 
     async def close_all_engines(self):
@@ -209,7 +180,7 @@ def get_orchestrator() -> MultiSearchOrchestrator:
     return _orchestrator
 
 
-async def multi_search(
+async def web_search(
     query: str,
     ctx: Context,
     num_results: int = 10,
@@ -219,7 +190,7 @@ async def multi_search(
     use_fallback: bool = True,
 ) -> str:
     """
-    Multi-engine search with comprehensive content extraction and caching.
+    Web search across multiple engines with comprehensive content extraction and caching.
 
     Args:
         query: Search query to execute

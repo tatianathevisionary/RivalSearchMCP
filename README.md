@@ -12,28 +12,30 @@
 ![Last Commit](https://img.shields.io/github/last-commit/damionrashford/RivalSearchMCP?style=social)
 ![Visitor Count](https://visitor-badge.laobi.icu/badge?page_id=damionrashford.RivalSearchMCP)
 
-**Advanced MCP server for web research, content discovery, and trends analysis.**
+**Advanced MCP server for web research, content discovery, social media analysis, and AI-powered research.**
 
 > 🆓 **100% Free & Open Source** — No API keys, no subscriptions, no rate limits. Just add one URL and go.
 
 ## What It Does
 
-RivalSearchMCP provides comprehensive tools for accessing web content, performing multi-engine searches across Yahoo and DuckDuckGo, analyzing websites, conducting research workflows, and analyzing trends data. It includes 8 specialized tools organized into key categories for comprehensive web research capabilities.
+RivalSearchMCP provides comprehensive tools for accessing web content, performing multi-engine searches across DuckDuckGo, Yahoo, and Wikipedia, analyzing websites, social media, news, GitHub repositories, and documents with OCR. It includes 10 specialized tools organized into key categories for comprehensive web research capabilities.
 
 ## ✅ Why It's Useful
 
 - Access web content and perform searches with anti-detection measures
 - Analyze website content and structure with intelligent crawling
 - Conduct end-to-end research workflows with progress tracking
-- Analyze trends data with comprehensive export options
-- Generate LLMs.txt documentation files for websites
+- Search social media platforms (Reddit, Hacker News, Dev.to, Product Hunt, Medium)
+- Aggregate news from multiple sources with no authentication required
+- Analyze documents (PDF, Word, Text, Images) with OCR support
+- Search social media and news across 8 platforms simultaneously
 - Integrate with AI assistants for enhanced web research
 
 ## 💡 Example Query
 
 Once connected, try asking your AI assistant:
 
-> "Use rival-search-mcp to research trends for AI agents and automation workflows in 2026. Search for the latest developments, analyze how interest has changed over time, compare regional adoption, find related emerging topics, and export the findings to a report."
+> "Use RivalSearchMCP to research FastAPI vs Django. Search the web, check Reddit and Hacker News discussions, find recent news articles, search GitHub repositories, and analyze academic papers. Then use the research agent to generate a comprehensive comparison report."
 
 ## 📦 How to Get Started
 
@@ -78,54 +80,58 @@ If you want to run the server locally or contribute:
 
 2. **Install dependencies:**
    ```bash
-   pip install -r requirements.txt
+   uv sync
    ```
 
 3. **Run the server:**
    ```bash
    # Runs in stdio mode by default (compatible with Claude/IDE MCP clients)
-   python server.py
+   uv run python server.py
    ```
 
-   To connect your local instance to Claude Desktop, add this to your `claude_desktop_config.json`:
+   To connect your local instance to Claude Desktop or Cursor, add this to your MCP config:
    ```json
    "RivalSearchMCP-local": {
-     "command": "python",
-     "args": ["/absolute/path/to/RivalSearchMCP/server.py"]
+     "command": "uv",
+     "args": [
+       "--directory",
+       "/absolute/path/to/RivalSearchMCP",
+       "run",
+       "python",
+       "server.py"
+     ]
    }
    ```
 
-## 🛠 Available Tools (8 Total)
+## 🛠 Available Tools (10 Total)
 
-### Search & Discovery
-- `multi_search` — Multi-engine search across Yahoo and DuckDuckGo with content extraction and intelligent fallbacks
+### Search & Discovery (5 tools)
+- `web_search` — Multi-engine search across DuckDuckGo, Yahoo, and Wikipedia with intelligent fallbacks
+- `social_search` — Search Reddit, Hacker News, Dev.to, Product Hunt, and Medium (NO AUTH)
+- `news_aggregation` — Aggregate news from Google News, DuckDuckGo News, and Yahoo News (NO AUTH)
+- `github_search` — Search GitHub repositories with 60/hour rate limiting (NO AUTH)
+- `map_website` — Intelligent website exploration with research, documentation, and mapping modes
 
-### Content Operations
+### Content Analysis (3 tools)
 - `content_operations` — Consolidated tool for retrieving, streaming, analyzing, and extracting content from URLs
-
-### Website Analysis
-- `traverse_website` — Intelligent website exploration with research, documentation, and mapping modes
-
-### Trends Analysis (2 tools)
-- `trends_core` — Google Trends analysis with search, related queries, regional data, and comparisons
-- `trends_export` — Export trends data in CSV, JSON, and SQL formats
-
-### Research Workflows (2 tools)
 - `research_topic` — End-to-end research workflow for comprehensive topic analysis
-- `research_workflow` — AI-enhanced research with OpenRouter integration and progress tracking
+- `document_analysis` — Extract text from PDF, Word, Text files, and Images with EasyOCR (NO AUTH, 50MB limit)
 
-### Scientific Research
-- `scientific_research` — Academic paper search and dataset discovery across arXiv, Semantic Scholar, PubMed, Kaggle, and Hugging Face
+### Research & Scientific (2 tools)
+- `scientific_research` — Academic paper search and dataset discovery across arXiv, Semantic Scholar (NO AUTH)
+- `research_agent` — AI research agent with autonomous tool calling using OpenRouter (7 tools available)
 
 ## ⚡ Key Features
 
-- **Multi-Engine Search**: Intelligent search across Yahoo and DuckDuckGo with automatic fallbacks
-- **Content Processing**: Advanced content extraction and analysis with OCR support
-- **AI-Enhanced Research**: OpenRouter integration for AI-powered insights and research assistance
-- **Scientific Discovery**: Academic paper and dataset search across major repositories
-- **Progress Tracking**: Real-time progress reporting for long-running operations
-- **Data Export**: Multiple format support (CSV, JSON, SQL) for trends data
-- **Intelligent Crawling**: Smart website traversal with configurable depth and modes
+- **Multi-Engine Search**: 3 search engines (DuckDuckGo, Yahoo, Wikipedia) with automatic fallbacks
+- **Social Media Research**: Search across 5 platforms (Reddit, Hacker News, Dev.to, Product Hunt, Medium)
+- **News Aggregation**: 3 news sources (Google News, DuckDuckGo News, Yahoo News)
+- **GitHub Integration**: Repository search with built-in rate limiting
+- **Document Analysis**: PDF, Word, Text, and Images with EasyOCR (zero-install, auto-downloads models)
+- **AI Research Agent**: Autonomous research agent that uses 7 tools and generates 4000+ character reports
+- **Content Processing**: Advanced content extraction and analysis with workflow hints
+- **Scientific Discovery**: Academic paper and dataset search across arXiv and Semantic Scholar
+- **Zero Authentication**: All 10 tools work without any API keys or authentication
 
 ## 💬 FAQ
 
@@ -138,7 +144,7 @@ Yes! RivalSearchMCP is 100% free and open source under the MIT License. There ar
 <details>
 <summary><strong>Do I need API keys?</strong></summary>
 
-No. RivalSearchMCP works out of the box without any API keys. Just add the server URL to your MCP client and you're ready to go.
+No. RivalSearchMCP works completely without any API keys, authentication, or configuration. Just add the URL and use all 10 tools immediately.
 </details>
 
 <details>

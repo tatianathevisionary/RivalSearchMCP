@@ -12,10 +12,22 @@ from src.logging.logger import logger
 
 
 class DuckDuckGoSearchEngine(BaseSearchEngine):
-    """DuckDuckGo search engine implementation - HTML format only."""
+    """DuckDuckGo search engine implementation - uses lite endpoint."""
     
     def __init__(self):
         super().__init__("DuckDuckGo", "https://duckduckgo.com")
+        # Override session with proper configuration for DuckDuckGo
+        import httpx
+        self.session = httpx.AsyncClient(
+            timeout=30.0,
+            follow_redirects=True,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://duckduckgo.com/',
+            }
+        )
     
     async def search(
         self, 
@@ -31,6 +43,7 @@ class DuckDuckGoSearchEngine(BaseSearchEngine):
             
             # Use only HTML format (most reliable)
             results = await self._search_html(query, num_results)
+            logger.info(f"_search_html returned {len(results)} results")
             
             if extract_content and results:
                 # Extract real URLs and fetch content
@@ -62,67 +75,62 @@ class DuckDuckGoSearchEngine(BaseSearchEngine):
             return []
     
     async def _search_html(self, query: str, num_results: int) -> List[MultiSearchResult]:
-        """Search using HTML format (most reliable)."""
-        search_url = f"{self.base_url}/html"
+        """Search using lite endpoint (avoids bot detection)."""
+        search_url = "https://lite.duckduckgo.com/lite/"
         params = {
-            'q': query,
-            'kl': 'us-en',
-            'kp': '1',
-            't': 'h_',
-            'ia': 'web'
+            'q': query
         }
         
         try:
-            async with self.session as client:
-                response = await client.get(search_url, params=params)
-                response.raise_for_status()
-                
-                soup = BeautifulSoup(response.text, 'html.parser')
-                results = []
-                
-                # Find result containers
-                result_containers = soup.find_all('div', class_='result')
-                if not result_containers:
-                    # Try alternative selectors
-                    result_containers = soup.find_all('div', class_='web-result')
-                
-                for i, container in enumerate(result_containers[:num_results]):
-                    try:
-                        if isinstance(container, Tag):
-                            # Extract title and link
-                            title_elem = container.find('a', class_='result__a')
-                            if not title_elem:
-                                title_elem = container.find('a')
-                            
-                            if isinstance(title_elem, Tag) and hasattr(title_elem, 'get_text') and callable(getattr(title_elem, 'get_text')):
-                                title = self._clean_text(title_elem.get_text())
-                                url = title_elem.get('href', '')
-                                
-                                # Extract description
-                                desc_elem = container.find('div', class_='result__snippet')
-                                if not desc_elem:
-                                    desc_elem = container.find('div', class_='snippet')
-                                
-                                description = ""
-                                if isinstance(desc_elem, Tag) and hasattr(desc_elem, 'get_text') and callable(getattr(desc_elem, 'get_text')):
-                                    description = self._clean_text(desc_elem.get_text())
-                                
-                                if title and url:
-                                    results.append(MultiSearchResult(
-                                        title=title,
-                                        url=str(url),
-                                        description=description,
-                                        engine=self.name,
-                                        position=i + 1,
-                                        timestamp=datetime.now().isoformat(),
-                                        html_structure=self._extract_html_structure(str(container)),
-                                        raw_html=str(container)
-                                    ))
-                    except Exception as e:
-                        logger.debug(f"Failed to parse result {i}: {e}")
-                        continue
-                
-                return results
+            # Use session directly with realistic browser headers
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://duckduckgo.com/',
+            }
+            response = await self.session.get(search_url, params=params, headers=headers)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            results = []
+            
+            # Lite endpoint uses <a class="result-link"> directly
+            result_links = soup.find_all('a', class_='result-link')
+            
+            logger.info(f"Found {len(result_links)} result links")
+            
+            for i, link_elem in enumerate(result_links[:num_results]):
+                try:
+                    if isinstance(link_elem, Tag):
+                        # Extract title and URL directly from link
+                        title = self._clean_text(link_elem.get_text())
+                        url = link_elem.get('href', '')
+                        
+                        # Find description in next sibling td
+                        parent_row = link_elem.find_parent('tr')
+                        description = ""
+                        if parent_row:
+                            desc_td = parent_row.find('td', class_='result-snippet')
+                            if desc_td:
+                                description = self._clean_text(desc_td.get_text())
+                        
+                        if title and url:
+                            results.append(MultiSearchResult(
+                                title=title,
+                                url=str(url),
+                                description=description,
+                                engine=self.name,
+                                position=i + 1,
+                                timestamp=datetime.now().isoformat(),
+                                html_structure={},
+                                raw_html=str(link_elem)
+                            ))
+                except Exception as e:
+                    logger.debug(f"Failed to parse result {i}: {e}")
+                    continue
+            
+            return results
                 
         except Exception as e:
             logger.error(f"DuckDuckGo HTML search failed: {e}")

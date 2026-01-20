@@ -10,7 +10,7 @@ from fastmcp import Context
 from fastmcp.server.context import Context
 
 # Import tools
-from ..tools.multi_search import multi_search
+from ..tools.multi_search import web_search
 
 # Import logger
 from ..logging.logger import logger

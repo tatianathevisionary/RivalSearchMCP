@@ -72,54 +72,54 @@ class YahooSearchEngine(BaseSearchEngine):
         }
         
         try:
-            async with self.session as client:
-                response = await client.get(search_url, params=params)
-                response.raise_for_status()
-                
-                soup = BeautifulSoup(response.text, 'html.parser')
-                results = []
-                
-                # Find result containers
-                result_containers = soup.find_all('div', class_='dd')
-                if not result_containers:
-                    # Try alternative selectors
-                    result_containers = soup.find_all('div', class_='algo')
-                
-                for i, container in enumerate(result_containers[:num_results]):
-                    try:
-                        if isinstance(container, Tag):
-                            # Extract title and link
-                            title_elem = container.find('a')
+            # Use session directly (it's already an AsyncClient)
+            response = await self.session.get(search_url, params=params)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            results = []
+            
+            # Find result containers
+            result_containers = soup.find_all('div', class_='dd')
+            if not result_containers:
+                # Try alternative selectors
+                result_containers = soup.find_all('div', class_='algo')
+            
+            for i, container in enumerate(result_containers[:num_results]):
+                try:
+                    if isinstance(container, Tag):
+                        # Extract title and link
+                        title_elem = container.find('a')
+                        
+                        if isinstance(title_elem, Tag) and hasattr(title_elem, 'get_text') and callable(getattr(title_elem, 'get_text')):
+                            title = self._clean_text(title_elem.get_text())
+                            url = title_elem.get('href', '')
                             
-                            if isinstance(title_elem, Tag) and hasattr(title_elem, 'get_text') and callable(getattr(title_elem, 'get_text')):
-                                title = self._clean_text(title_elem.get_text())
-                                url = title_elem.get('href', '')
-                                
-                                # Extract description
-                                desc_elem = container.find('div', class_='compText')
-                                if not desc_elem:
-                                    desc_elem = container.find('span', class_='st')
-                                
-                                description = ""
-                                if isinstance(desc_elem, Tag) and hasattr(desc_elem, 'get_text') and callable(getattr(desc_elem, 'get_text')):
-                                    description = self._clean_text(desc_elem.get_text())
-                                
-                                if title and url:
-                                    results.append(MultiSearchResult(
-                                        title=title,
-                                        url=str(url),
-                                        description=description,
-                                        engine=self.name,
-                                        position=i + 1,
-                                        timestamp=datetime.now().isoformat(),
-                                        html_structure=self._extract_html_structure(str(container)),
-                                        raw_html=str(container)
-                                    ))
-                    except Exception as e:
-                        logger.debug(f"Failed to parse result {i}: {e}")
-                        continue
-                
-                return results
+                            # Extract description
+                            desc_elem = container.find('div', class_='compText')
+                            if not desc_elem:
+                                desc_elem = container.find('span', class_='st')
+                            
+                            description = ""
+                            if isinstance(desc_elem, Tag) and hasattr(desc_elem, 'get_text') and callable(getattr(desc_elem, 'get_text')):
+                                description = self._clean_text(desc_elem.get_text())
+                            
+                            if title and url:
+                                results.append(MultiSearchResult(
+                                    title=title,
+                                    url=str(url),
+                                    description=description,
+                                    engine=self.name,
+                                    position=i + 1,
+                                    timestamp=datetime.now().isoformat(),
+                                    html_structure=self._extract_html_structure(str(container)),
+                                    raw_html=str(container)
+                                ))
+                except Exception as e:
+                    logger.debug(f"Failed to parse result {i}: {e}")
+                    continue
+            
+            return results
                 
         except Exception as e:
             logger.error(f"Yahoo HTML search failed: {e}")

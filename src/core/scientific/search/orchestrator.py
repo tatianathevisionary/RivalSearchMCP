@@ -105,8 +105,8 @@ class AcademicSearchOrchestrator:
         deduplicated_papers.sort(
             key=lambda p: (
                 source_priority.get(p.get("source", ""), len(source_priority)),
-                -(p.get("citationCount", 0) or 0),  # Higher citations first
-                -(p.get("year", 0) or 0)  # More recent first
+                -int(p.get("citationCount") or 0),  # Higher citations first
+                -int(p.get("year") or 0)  # More recent first
             )
         )
 
@@ -191,8 +191,8 @@ class AcademicSearchOrchestrator:
 
         # Sort papers by relevance score (if available) or citation count
         papers.sort(key=lambda p: (
-            -(p.get("citationCount", 0) or 0),
-            -(p.get("year", 0) or 0)
+            -int(p.get("citationCount") or 0),
+            -int(p.get("year") or 0)
         ))
 
         return {

@@ -39,8 +39,9 @@ from .traverse import (
     analyze_structure,
 )
 
-from .trends import GoogleTrendsAPI
-from .llms import ContentProcessor, LLMsTxtGenerator
+# Removed unused imports:
+# from .trends import GoogleTrendsAPI  # Trends tools removed
+# from .llms import ContentProcessor, LLMsTxtGenerator  # Module doesn't exist
 
 __all__ = [
     # Bypass

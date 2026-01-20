@@ -103,7 +103,7 @@ class WebsiteTraverser:
     async def _fetch_page(self, url: str) -> Optional[Dict[str, Any]]:
         """Fetch a single page."""
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 response = await client.get(url)
                 response.raise_for_status()
 

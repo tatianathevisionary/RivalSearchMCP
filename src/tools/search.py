@@ -12,7 +12,7 @@ from pydantic import Field
 
 from src.logging.logger import logger
 
-from src.tools.multi_search import multi_search
+from src.tools.multi_search import web_search
 
 
 def register_search_tools(mcp: FastMCP):
@@ -21,23 +21,23 @@ def register_search_tools(mcp: FastMCP):
     # No Google search tool - removed as requested
 
     @mcp.tool(
-        name="multi_search",
+        name="web_search",
         description="Search across Yahoo and DuckDuckGo engines with fallback support",
-        tags={"search", "web", "yahoo", "duckduckgo", "multi-engine"},
+        tags={"search", "web", "yahoo", "duckduckgo"},
         meta={
             "version": "1.0",
             "category": "Search",
             "engines": ["yahoo", "duckduckgo"],
         },
         annotations={
-            "title": "Multi-Engine Search",
+            "title": "Web Search",
             "readOnlyHint": True,
             "openWorldHint": True,
             "destructiveHint": False,
             "idempotentHint": False,
         },
     )
-    async def multi_search_tool(
+    async def web_search_tool(
         ctx: Context,
         query: Annotated[
             str, Field(description="Search query string", min_length=2, max_length=500)
@@ -94,7 +94,7 @@ def register_search_tools(mcp: FastMCP):
             await ctx.error(f"Parameter validation failed: {depth_result}")
             return f"❌ **Error:** {depth_result}"
 
-        return await multi_search(
+        return await web_search(
             query=query,
             ctx=ctx,
             num_results=num_results,

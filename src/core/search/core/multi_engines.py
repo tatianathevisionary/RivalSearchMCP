@@ -97,20 +97,24 @@ class BaseSearchEngine:
         self.name = name
         self.base_url = base_url
 
-        # Optimized HTTP client with connection pooling and rate limiting
+        # Optimized HTTP client with realistic browser headers to avoid bot detection
         limits = httpx.Limits(max_keepalive_connections=20, max_connections=100)
         self.session = httpx.AsyncClient(
             timeout=httpx.Timeout(30.0, connect=10.0, read=20.0),
             follow_redirects=True,
             limits=limits,
             headers={
-                'User-Agent': get_random_user_agent(),
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-                'Accept-Encoding': 'gzip, deflate',
-                'DNT': '1',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
                 'Connection': 'keep-alive',
                 'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0',
             }
         )
         self.visited_urls: Set[str] = set()
@@ -134,10 +138,10 @@ class BaseSearchEngine:
         self.visited_urls.add(url)
         
         try:
-            async with self.session as client:
-                response = await client.get(url)
-                response.raise_for_status()
-                return response.text
+            # Use session directly (it's already an AsyncClient)
+            response = await self.session.get(url)
+            response.raise_for_status()
+            return response.text
         except Exception as e:
             logger.warning(f"Failed to fetch content from {url}: {e}")
             return None
