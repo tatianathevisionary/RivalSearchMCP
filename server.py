@@ -24,6 +24,7 @@ from src.prompts import register_prompts
 
 # Import middleware
 from src.middleware import register_middleware
+from src.middleware.null_id_validation import NullIdValidationMiddleware
 
 # Import custom routes
 from src.routes.routes import register_custom_routes
@@ -136,6 +137,27 @@ register_custom_routes(app)
 # Start background tasks that require event loop
 from src.middleware.middleware import start_background_tasks
 start_background_tasks()
+
+
+def _wrap_http_app_with_null_id_validation():
+    """Ensure NullIdValidationMiddleware is applied for all HTTP deployments.
+
+    FastMCP Cloud/Horizon calls app.http_app() directly (ignores __main__),
+    so we wrap it to always include the null-id validation middleware.
+    """
+    from starlette.middleware import Middleware
+
+    _original_http_app = app.http_app
+
+    def _http_app(**kwargs):
+        middleware = list(kwargs.get("middleware") or [])
+        middleware.insert(0, Middleware(NullIdValidationMiddleware))
+        return _original_http_app(middleware=middleware, **kwargs)
+
+    app.http_app = _http_app
+
+
+_wrap_http_app_with_null_id_validation()
 
 if __name__ == "__main__":
     if ENVIRONMENT == "production":
