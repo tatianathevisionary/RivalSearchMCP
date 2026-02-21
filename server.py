@@ -156,7 +156,7 @@ def _wrap_http_app_with_security_middleware():
     _original_http_app = app.http_app
 
     def _http_app(**kwargs):
-        middleware = list(kwargs.get("middleware") or [])
+        middleware = list(kwargs.pop("middleware", None) or [])
         # Insert in reverse order so the first entry runs outermost
         middleware.insert(0, Middleware(NullIdValidationMiddleware))
         middleware.insert(0, Middleware(CORSOriginValidationMiddleware))
