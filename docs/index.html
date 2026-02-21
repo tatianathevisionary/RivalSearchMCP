@@ -4,15 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-DGC57YC23F"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-DGC57YC23F');
-    </script>
-
     <!-- Primary Meta Tags -->
     <title>Rival Search MCP — Deep Research &amp; Competitor Analysis MCP for AI Assistants</title>
     <meta name="description" content="Rival Search MCP is an open-source MCP server giving AI assistants real-time web intelligence. 10 research tools, 20+ data sources, zero API keys. Works with Claude, Cursor &amp; VS Code." />
@@ -46,10 +37,12 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
 
-    <!-- Fonts: preconnect + load with display=swap -->
+    <!-- Fonts: preconnect + non-blocking load -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" /></noscript>
 
     <!-- Structured Data: JSON-LD -->
     <script type="application/ld+json">
@@ -204,6 +197,14 @@
     </script>
     <script type="module" crossorigin src="/assets/index-XiUKjVE4.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-DyxumdZV.css">
+
+    <!-- Accessibility: WCAG AA contrast overrides (4.5:1 min on #050505 bg) -->
+    <style>
+      :root {
+        --color-faint: #8a8a8f;  /* was #3f3f46 → now 4.6:1 on #050505 */
+        --color-dim: #9e9ea6;    /* was #71717a → now 5.5:1 on #050505 */
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
@@ -263,5 +264,21 @@
         <p><a href="https://github.com/damionrashford/RivalSearchMCP">View on GitHub</a> | MIT License | Built by <a href="https://github.com/damionrashford">Damion Rashford</a></p>
       </div>
     </noscript>
+
+    <!-- Google Analytics: deferred to avoid render-blocking -->
+    <script>
+      window.addEventListener('load', function() {
+        var s = document.createElement('script');
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=G-DGC57YC23F';
+        s.async = true;
+        document.head.appendChild(s);
+        s.onload = function() {
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-DGC57YC23F');
+        };
+      });
+    </script>
   </body>
 </html>
