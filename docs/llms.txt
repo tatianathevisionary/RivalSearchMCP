@@ -33,4 +33,4 @@ Rival Search MCP solves the fundamental problem of AI assistants being disconnec
 ## Optional
 
 - [MIT License](https://github.com/damionrashford/RivalSearchMCP/blob/main/LICENSE): Open source under MIT License
-- [Landing Page](https://damionrashford.github.io/RivalSearchMCP/): Marketing site with full feature overview
+- [Landing Page](https://rivalsearchmcp.com/): Marketing site with full feature overview

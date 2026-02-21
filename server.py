@@ -25,6 +25,7 @@ from src.prompts import register_prompts
 # Import middleware
 from src.middleware import register_middleware
 from src.middleware.null_id_validation import NullIdValidationMiddleware
+from src.middleware.cors_validation import CORSOriginValidationMiddleware
 
 # Import custom routes
 from src.routes.routes import register_custom_routes
@@ -139,11 +140,16 @@ from src.middleware.middleware import start_background_tasks
 start_background_tasks()
 
 
-def _wrap_http_app_with_null_id_validation():
-    """Ensure NullIdValidationMiddleware is applied for all HTTP deployments.
+def _wrap_http_app_with_security_middleware():
+    """Ensure HTTP-level security middleware is applied for all deployments.
 
     FastMCP Cloud/Horizon calls app.http_app() directly (ignores __main__),
-    so we wrap it to always include the null-id validation middleware.
+    so we wrap it to always include our HTTP-level validation middleware.
+
+    Middleware order (outermost → innermost):
+      1. CORSOriginValidationMiddleware  – blocks untrusted origins (MUST per spec)
+      2. NullIdValidationMiddleware       – rejects id: null requests
+      3. … FastMCP / Starlette internals
     """
     from starlette.middleware import Middleware
 
@@ -151,13 +157,15 @@ def _wrap_http_app_with_null_id_validation():
 
     def _http_app(**kwargs):
         middleware = list(kwargs.get("middleware") or [])
+        # Insert in reverse order so the first entry runs outermost
         middleware.insert(0, Middleware(NullIdValidationMiddleware))
+        middleware.insert(0, Middleware(CORSOriginValidationMiddleware))
         return _original_http_app(middleware=middleware, **kwargs)
 
     app.http_app = _http_app
 
 
-_wrap_http_app_with_null_id_validation()
+_wrap_http_app_with_security_middleware()
 
 if __name__ == "__main__":
     if ENVIRONMENT == "production":
