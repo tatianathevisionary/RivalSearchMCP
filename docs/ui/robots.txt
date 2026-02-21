@@ -27,4 +27,4 @@ User-agent: Google-Extended
 Allow: /
 
 # Sitemap
-Sitemap: https://damionrashford.github.io/RivalSearchMCP-UI/sitemap.xml
+Sitemap: https://damionrashford.github.io/RivalSearchMCP/ui/sitemap.xml
