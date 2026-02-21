@@ -76,6 +76,9 @@ opencode.json
 .mcp.json
 mcp.json
 
+# Rival Search plugin (lives in its own repo: damionrashford/rival-search)
+rival-search/
+
 # Keep agent system in git (agents, commands, skills, hooks, docs)
 
 # OS generated files
