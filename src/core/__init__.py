@@ -11,32 +11,24 @@ from .bypass import (
     select_proxy,
     test_proxy,
 )
-
-
-
 from .fetch import (
     base_fetch_url,
-    stream_fetch,
     batch_rival_retrieve,
-    rival_retrieve,
     google_search_fetch,
+    rival_retrieve,
+    stream_fetch,
 )
-
-
-
-
 from .search import (
     BaseSearchEngine,
-    MultiSearchResult,
     DuckDuckGoSearchEngine,
+    MultiSearchResult,
     YahooSearchEngine,
 )
-
 from .traverse import (
-    traverse_website,
-    get_sitemap,
-    extract_links,
     analyze_structure,
+    extract_links,
+    get_sitemap,
+    traverse_website,
 )
 
 # Removed unused imports:
@@ -52,8 +44,6 @@ __all__ = [
     "select_proxy",
     "test_proxy",
     # Extract
-
-
     # Fetch
     "base_fetch_url",
     "stream_fetch",

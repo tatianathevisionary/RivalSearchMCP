@@ -15,9 +15,7 @@ def main():
     query = "ai agents"
 
     # Use the Google Search only method
-    scraper.search_google(
-        query, num_results=50, advanced=True, unique=True  # Back to 50 results
-    )
+    scraper.search_google(query, num_results=50, advanced=True, unique=True)  # Back to 50 results
 
     # Display and save results
     scraper.display_results(clean=True)

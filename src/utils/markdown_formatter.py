@@ -2,85 +2,85 @@
 Utilities for formatting tool outputs as clean markdown.
 """
 
-from typing import Dict, List, Any, Optional
 from datetime import datetime
+from typing import Any, Dict, List
 
 
 def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
     """Format social search results as clean markdown."""
     output = f"# 💬 Social Search Results for: *{query}*\n\n"
-    
-    total_results = sum(r.get('count', 0) for r in results.values())
-    platforms = [p for p, r in results.items() if r.get('count', 0) > 0]
-    
+
+    total_results = sum(r.get("count", 0) for r in results.values())
+    platforms = [p for p, r in results.items() if r.get("count", 0) > 0]
+
     output += f"**Found {total_results} results** across {len(platforms)} platforms\n\n"
     output += "---\n\n"
-    
+
     # Add workflow hint
     if total_results > 0:
         output += "💡 **Next Steps:**\n"
         output += "- Use `content_operations` to retrieve full content from discussion URLs\n"
         output += "- Use `research_agent` to synthesize community insights\n\n"
         output += "---\n\n"
-    
+
     # Reddit results
-    if 'reddit' in results and results['reddit'].get('results'):
+    if "reddit" in results and results["reddit"].get("results"):
         output += "## Reddit Results\n\n"
-        for i, post in enumerate(results['reddit']['results'][:10], 1):
+        for i, post in enumerate(results["reddit"]["results"][:10], 1):
             output += f"### {i}. r/{post['subreddit']}: {post['title']}\n\n"
             output += f"**Score:** {post['score']} | **Comments:** {post['num_comments']} | **Author:** u/{post['author']}\n\n"
-            if post.get('selftext'):
+            if post.get("selftext"):
                 output += f"{post['selftext'][:200]}...\n\n"
             output += f"[🔗 View on Reddit]({post['url']})\n\n"
             output += "---\n\n"
-    
+
     # Hacker News results
-    if 'hackernews' in results and results['hackernews'].get('results'):
+    if "hackernews" in results and results["hackernews"].get("results"):
         output += "## Hacker News Results\n\n"
-        for i, story in enumerate(results['hackernews']['results'][:10], 1):
+        for i, story in enumerate(results["hackernews"]["results"][:10], 1):
             output += f"### {i}. {story['title']}\n\n"
             output += f"**Points:** {story['points']} | **Comments:** {story['num_comments']} | **By:** {story['author']}\n\n"
-            if story.get('url'):
+            if story.get("url"):
                 output += f"[🔗 Article]({story['url']}) | "
             output += f"[💬 Discussion]({story['hn_url']})\n\n"
             output += "---\n\n"
-    
+
     # Dev.to results
-    if 'devto' in results and results['devto'].get('results'):
+    if "devto" in results and results["devto"].get("results"):
         output += "## Dev.to Results\n\n"
-        for i, article in enumerate(results['devto']['results'][:10], 1):
+        for i, article in enumerate(results["devto"]["results"][:10], 1):
             output += f"### {i}. {article['title']}\n\n"
             output += f"**By:** {article['user']} | **Reactions:** {article['public_reactions_count']} | **Comments:** {article['comments_count']}\n\n"
-            if article.get('description'):
+            if article.get("description"):
                 output += f"{article['description']}\n\n"
             output += f"**Tags:** {', '.join(article['tag_list'][:5])}\n\n"
             output += f"[🔗 Read Article]({article['url']})\n\n"
             output += "---\n\n"
-    
+
     # Product Hunt results
-    if 'producthunt' in results and results['producthunt'].get('results'):
+    if "producthunt" in results and results["producthunt"].get("results"):
         output += "## Product Hunt Results\n\n"
-        for i, product in enumerate(results['producthunt']['results'][:10], 1):
+        for i, product in enumerate(results["producthunt"]["results"][:10], 1):
             output += f"### {i}. {product['title']}\n\n"
-            if product.get('tagline'):
+            if product.get("tagline"):
                 output += f"{product['tagline']}\n\n"
-            if product.get('votes'):
+            if product.get("votes"):
                 output += f"**Upvotes:** {product['votes']}\n\n"
             output += f"[🔗 View on Product Hunt]({product['url']})\n\n"
             output += "---\n\n"
-    
+
     # Medium results
-    if 'medium' in results and results['medium'].get('results'):
+    if "medium" in results and results["medium"].get("results"):
         output += "## Medium Results\n\n"
-        for i, article in enumerate(results['medium']['results'][:10], 1):
+        for i, article in enumerate(results["medium"]["results"][:10], 1):
             output += f"### {i}. {article['title']}\n\n"
-            if article.get('author'):
+            if article.get("author"):
                 output += f"**By:** {article['author']}\n\n"
-            if article.get('summary'):
+            if article.get("summary"):
                 output += f"{article['summary']}\n\n"
             output += f"[🔗 Read on Medium]({article['url']})\n\n"
             output += "---\n\n"
-    
+
     output += f"*Search completed on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
     return output
 
@@ -92,7 +92,7 @@ def format_news_markdown(query: str, articles: List[Dict[str, Any]], time_range:
     if time_range != "anytime":
         output += f"**Time Range:** {time_range}\n\n"
     output += "---\n\n"
-    
+
     # Add workflow hint
     if len(articles) > 0:
         output += "💡 **Next Steps:**\n"
@@ -100,22 +100,22 @@ def format_news_markdown(query: str, articles: List[Dict[str, Any]], time_range:
         output += "- Use `document_analysis` if articles link to PDFs\n"
         output += "- Use `research_agent` for comprehensive news analysis\n\n"
         output += "---\n\n"
-    
+
     for i, article in enumerate(articles, 1):
         output += f"## {i}. {article.get('title', 'Untitled')}\n\n"
-        
-        if article.get('source'):
+
+        if article.get("source"):
             output += f"**Source:** {article['source']}"
-        if article.get('published'):
+        if article.get("published"):
             output += f" | **Published:** {article['published']}"
         output += "\n\n"
-        
-        if article.get('description'):
+
+        if article.get("description"):
             output += f"{article['description']}\n\n"
-        
+
         output += f"[🔗 Read Article]({article.get('url', '#')})\n\n"
         output += "---\n\n"
-    
+
     output += f"*News search completed on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
     return output
 
@@ -125,7 +125,7 @@ def format_github_markdown(query: str, repositories: List[Dict[str, Any]]) -> st
     output = f"# 🐙 GitHub Repository Search: *{query}*\n\n"
     output += f"**Found {len(repositories)} repositories**\n\n"
     output += "---\n\n"
-    
+
     # Add workflow hint
     if len(repositories) > 0:
         output += "💡 **Next Steps:**\n"
@@ -133,30 +133,30 @@ def format_github_markdown(query: str, repositories: List[Dict[str, Any]]) -> st
         output += "- Use `map_website` to explore repository documentation\n"
         output += "- Use `research_agent` for comprehensive code/project analysis\n\n"
         output += "---\n\n"
-    
+
     for i, repo in enumerate(repositories, 1):
         output += f"## {i}. {repo.get('name', 'Unknown')}\n\n"
-        
-        if repo.get('description'):
+
+        if repo.get("description"):
             output += f"{repo['description']}\n\n"
-        
+
         # Stats
         output += f"**⭐ Stars:** {repo.get('stars', 0)} | "
         output += f"**🔀 Forks:** {repo.get('forks', 0)} | "
         output += f"**Language:** {repo.get('language', 'N/A')} | "
         output += f"**Issues:** {repo.get('open_issues', 0)}\n\n"
-        
-        if repo.get('topics'):
+
+        if repo.get("topics"):
             output += f"**Topics:** {', '.join(repo['topics'][:5])}\n\n"
-        
+
         output += f"**Updated:** {repo.get('updated_at', 'Unknown')}\n\n"
-        
-        if repo.get('readme'):
+
+        if repo.get("readme"):
             output += f"**README Preview:**\n```\n{repo['readme'][:300]}...\n```\n\n"
-        
+
         output += f"[🔗 View on GitHub]({repo.get('url', '#')})\n\n"
         output += "---\n\n"
-    
+
     output += f"*Search completed on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
     return output
 
@@ -172,9 +172,11 @@ def format_academic_search_markdown(results: Dict[str, Any]) -> str:
 
     # Header
     output = f"# 🔬 Academic Search Results for: *{query}*\n\n"
-    output += f"**Found {len(papers)} papers** from {', '.join(metadata.get('sources_searched', []))}\n\n"
+    output += (
+        f"**Found {len(papers)} papers** from {', '.join(metadata.get('sources_searched', []))}\n\n"
+    )
     output += "---\n\n"
-    
+
     # Add workflow hint
     if len(papers) > 0:
         output += "💡 **Next Steps:**\n"
@@ -197,9 +199,9 @@ def format_academic_search_markdown(results: Dict[str, Any]) -> str:
                     author_names.append(author.get("name", ""))
                 else:
                     author_names.append(str(author))
-            
+
             author_names = [name for name in author_names if name]  # Filter empty names
-            
+
             if author_names:
                 if len(author_names) <= 3:
                     author_str = ", ".join(author_names)
@@ -360,9 +362,7 @@ def format_multi_search_markdown(results: Dict[str, Any]) -> str:
             successful_engines += 1
             output += f"**{engine.title()}:** {count} results\n"
 
-    output += (
-        f"\n**Total Results:** {total_results} from {successful_engines} engines\n\n"
-    )
+    output += f"\n**Total Results:** {total_results} from {successful_engines} engines\n\n"
     output += "---\n\n"
 
     # Results by engine
@@ -394,9 +394,7 @@ def format_multi_search_markdown(results: Dict[str, Any]) -> str:
     return output.strip()
 
 
-def format_research_analysis_markdown(
-    results: Dict[str, Any], tool_name: str = "Research"
-) -> str:
+def format_research_analysis_markdown(results: Dict[str, Any], tool_name: str = "Research") -> str:
     """Format research/analysis results as clean markdown."""
     if results.get("status") != "success":
         return f"❌ **Error:** {results.get('error', 'Unknown error occurred')}"
@@ -453,9 +451,7 @@ def format_research_analysis_markdown(
                     output += f"- {item}\n"
                 output += "\n"
             elif isinstance(section_data, str) and section_data:
-                output += (
-                    f"## {section_name.replace('_', ' ').title()}\n\n{section_data}\n\n"
-                )
+                output += f"## {section_name.replace('_', ' ').title()}\n\n{section_data}\n\n"
 
     # Footer
     output += f"*Analysis completed on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
@@ -525,7 +521,9 @@ def format_trends_markdown(results: Dict[str, Any]) -> str:
             for row in data[:20]:  # Limit to 20 rows for readability
                 if isinstance(row, dict):
                     date = row.get("date", row.get("time", ""))
-                    value = row.get("value", row.get(list(row.keys())[1] if len(row) > 1 else "value", ""))
+                    value = row.get(
+                        "value", row.get(list(row.keys())[1] if len(row) > 1 else "value", "")
+                    )
                     output += f"| {date} | {value} |\n"
             if len(data) > 20:
                 output += f"\n*Showing first 20 of {len(data)} entries*\n"
@@ -599,59 +597,59 @@ def format_trends_markdown(results: Dict[str, Any]) -> str:
 
 def format_document_markdown(result: Dict[str, Any], summary_length: int = 500) -> str:
     """Format document analysis results as clean markdown."""
-    doc_type = result.get('document_type', 'document').upper()
+    doc_type = result.get("document_type", "document").upper()
     output = f"# 📄 Document Analysis ({doc_type})\n\n"
-    
-    if result.get('status') == 'error':
+
+    if result.get("status") == "error":
         return output + f"❌ **Error:** {result.get('error', 'Unknown error')}"
-    
+
     output += f"**URL:** {result.get('url', 'Unknown')}\n\n"
     output += f"**Status:** {result.get('status', 'Unknown').title()}\n\n"
     output += "---\n\n"
-    
+
     # Document info
     output += "## Document Information\n\n"
     output += f"- **Document Type:** {result.get('document_type', 'Unknown').upper()}\n"
-    
-    if result.get('total_pages'):
+
+    if result.get("total_pages"):
         output += f"- **Total Pages:** {result.get('total_pages', 0)}\n"
         output += f"- **Pages Extracted:** {result.get('pages_extracted', 0)}\n"
-    
-    if result.get('paragraphs'):
+
+    if result.get("paragraphs"):
         output += f"- **Paragraphs:** {result.get('paragraphs', 0)}\n"
-    
-    if result.get('lines'):
+
+    if result.get("lines"):
         output += f"- **Lines:** {result.get('lines', 0)}\n"
-    
-    if result.get('image_size'):
+
+    if result.get("image_size"):
         output += f"- **Image Size:** {result.get('image_size')}\n"
-    
-    if result.get('ocr_used'):
-        output += f"- **OCR Used:** Yes ✨\n"
-    
+
+    if result.get("ocr_used"):
+        output += "- **OCR Used:** Yes ✨\n"
+
     output += f"- **Text Length:** {result.get('text_length', 0)} characters\n\n"
-    
+
     # Metadata
-    if result.get('metadata'):
-        meta = result['metadata']
+    if result.get("metadata"):
+        meta = result["metadata"]
         output += "## Metadata\n\n"
-        if meta.get('title'):
+        if meta.get("title"):
             output += f"- **Title:** {meta['title']}\n"
-        if meta.get('author'):
+        if meta.get("author"):
             output += f"- **Author:** {meta['author']}\n"
-        if meta.get('subject'):
+        if meta.get("subject"):
             output += f"- **Subject:** {meta['subject']}\n"
         output += "\n"
-    
+
     # Text preview
-    if result.get('text'):
-        text = result['text']
+    if result.get("text"):
+        text = result["text"]
         preview = text[:summary_length] if len(text) > summary_length else text
         output += "## Text Content Preview\n\n"
         output += f"```\n{preview}\n```\n\n"
         if len(text) > summary_length:
             output += f"*Showing first {summary_length} characters of {len(text)} total*\n\n"
-    
+
     output += "---\n\n"
     output += f"*Analysis completed on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
     return output

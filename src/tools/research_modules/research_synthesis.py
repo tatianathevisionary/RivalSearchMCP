@@ -3,7 +3,7 @@ Research synthesis and analysis utilities.
 Handles generating insights and summaries from research data.
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict
 
 
 def generate_research_synthesis(
@@ -32,9 +32,7 @@ def generate_research_synthesis(
             f"Basic research on '{research_results['topic']}' completed with {len(sources)} sources."
         )
         synthesis["key_findings"] = [
-            f"Found {len(sources)} relevant sources"
-            if sources
-            else "Limited source availability"
+            f"Found {len(sources)} relevant sources" if sources else "Limited source availability"
         ]
 
     elif research_depth == "comprehensive":

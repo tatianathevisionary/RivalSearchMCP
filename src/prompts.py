@@ -8,16 +8,16 @@ from fastmcp import FastMCP
 
 def register_prompts(mcp: FastMCP):
     """Register all prompts for RivalSearchMCP."""
-    
+
     @mcp.prompt
     def comprehensive_research(topic: str, depth: str = "comprehensive") -> list:
         """
         Generate a comprehensive research workflow using the research_agent.
-        
+
         This prompt guides the AI to use the research_agent tool effectively,
         which autonomously searches web, social media, news, GitHub, and academic
         sources to create a detailed research report.
-        
+
         Args:
             topic: The research topic or question
             depth: Research depth (basic, comprehensive, expert)
@@ -47,17 +47,19 @@ After receiving the research report, analyze it and provide:
 - Key findings summary
 - Important insights
 - Recommendations based on the research
-- Areas that need further investigation"""
+- Areas that need further investigation""",
             }
         ]
-    
+
     @mcp.prompt
-    def multi_source_search(query: str, include_social: bool = True, include_news: bool = True) -> list:
+    def multi_source_search(
+        query: str, include_social: bool = True, include_news: bool = True
+    ) -> list:
         """
         Search across multiple sources (web, social, news) and synthesize results.
-        
+
         Guides the workflow: web_search → social_search → news_aggregation → synthesis
-        
+
         Args:
             query: Search query
             include_social: Whether to include social media search
@@ -70,34 +72,34 @@ Follow this research workflow:
 1. First, use web_search to find general information:
    - query: "{query}"
    - num_results: 5"""]
-        
+
         if include_social:
             steps.append("""
 2. Then, use social_search to find community discussions:
    - platforms: ["reddit", "hackernews", "devto"]
    - max_results_per_platform: 5""")
-        
+
         if include_news:
             steps.append("""
 3. Next, use news_aggregation to find recent news:
    - max_results: 5""")
-        
+
         steps.append("""
 Finally, analyze all the information gathered and provide:
 - Summary of web search findings
 - Key insights from social discussions
 - Recent developments from news
 - Comprehensive synthesis of all sources""")
-        
+
         return [{"role": "user", "content": "\n".join(steps)}]
-    
+
     @mcp.prompt
     def deep_content_analysis(url: str, extract_documents: bool = False) -> list:
         """
         Perform deep analysis of a website and its content.
-        
+
         Guides workflow: map_website → content_operations → document_analysis
-        
+
         Args:
             url: Website URL to analyze
             extract_documents: Whether to analyze linked documents (PDFs, etc.)
@@ -110,23 +112,23 @@ Follow this workflow:
    - url: "{url}"
    - mode: "research"
    - max_pages: 10
-   
+
 2. For interesting pages found, use content_operations to retrieve full content:
    - operation: "retrieve"
    - extraction_method: "markdown"
-   
+
 3. Use content_operations to extract all links:
    - operation: "extract"
    - link_type: "all"
 """
-        
+
         if extract_documents:
             prompt += """
 4. For any PDF or document links found, use document_analysis:
    - Extract text with OCR support
    - Analyze document content
 """
-        
+
         prompt += """
 Finally, provide:
 - Website structure overview
@@ -134,16 +136,16 @@ Finally, provide:
 - Important pages and their purposes
 - Document summaries (if applicable)
 - Comprehensive site analysis"""
-        
+
         return [{"role": "user", "content": prompt}]
-    
+
     @mcp.prompt
     def academic_literature_review(research_question: str, max_papers: int = 10) -> list:
         """
         Conduct an academic literature review with document analysis.
-        
+
         Guides workflow: scientific_research → document_analysis → synthesis
-        
+
         Args:
             research_question: The research question or topic
             max_papers: Maximum number of papers to review
@@ -176,6 +178,6 @@ Provide a comprehensive literature review including:
 - Key papers and their contributions
 - Common methodologies and approaches
 - Research gaps and future directions
-- Citations and references"""
+- Citations and references""",
             }
         ]

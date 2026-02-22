@@ -45,9 +45,7 @@ def get_random_user_agent() -> str:
 
 def get_lynx_user_agent() -> str:
     """Generate a Lynx-style user agent for specialized scraping."""
-    lynx_version = (
-        f"Lynx/{random.randint(2, 3)}.{random.randint(8, 9)}.{random.randint(0, 2)}"
-    )
+    lynx_version = f"Lynx/{random.randint(2, 3)}.{random.randint(8, 9)}.{random.randint(0, 2)}"
     libwww_version = f"libwww-FM/{random.randint(2, 3)}.{random.randint(13, 15)}"
     ssl_mm_version = f"SSL-MM/{random.randint(1, 2)}.{random.randint(3, 5)}"
     openssl_version = (

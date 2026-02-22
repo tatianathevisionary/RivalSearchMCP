@@ -64,11 +64,7 @@ class WebsiteTraverser:
         self, url: str, depth: int, max_depth: int, max_pages: int, delay: float
     ):
         """Recursively traverse the website."""
-        if (
-            depth > max_depth
-            or len(self.pages) >= max_pages
-            or url in self.visited_urls
-        ):
+        if depth > max_depth or len(self.pages) >= max_pages or url in self.visited_urls:
             return
 
         self.visited_urls.add(url)

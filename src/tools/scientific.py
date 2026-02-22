@@ -3,19 +3,19 @@ Scientific research tools for FastMCP server.
 Provides academic paper search and dataset discovery using refactored modules.
 """
 
-from typing import List, Dict, Optional, Any
-from fastmcp import FastMCP
-from fastmcp import Context
+from typing import List, Optional
+
+from fastmcp import Context, FastMCP
 from pydantic import Field
 from typing_extensions import Annotated
 
-from src.core.scientific.search.orchestrator import AcademicSearchOrchestrator
 from src.core.scientific.datasets.orchestrator import DatasetDiscoveryOrchestrator
+from src.core.scientific.search.orchestrator import AcademicSearchOrchestrator
+from src.logging.logger import logger
 from src.utils.markdown_formatter import (
     format_academic_search_markdown,
     format_dataset_discovery_markdown,
 )
-from src.logging.logger import logger
 
 
 def register_scientific_tools(mcp: FastMCP):
@@ -28,24 +28,17 @@ def register_scientific_tools(mcp: FastMCP):
     async def scientific_research(
         ctx: Context,
         operation: Annotated[
-            str,
-            Field(description="Operation type: 'academic_search' or 'dataset_discovery'")
+            str, Field(description="Operation type: 'academic_search' or 'dataset_discovery'")
         ],
-        query: Annotated[
-            str,
-            Field(description="Search query", min_length=1, max_length=500)
-        ],
+        query: Annotated[str, Field(description="Search query", min_length=1, max_length=500)],
         max_results: Annotated[
-            int,
-            Field(description="Maximum results to return", ge=1, le=50, default=10)
+            int, Field(description="Maximum results to return", ge=1, le=50, default=10)
         ] = 10,
         sources: Annotated[
-            Optional[List[str]],
-            Field(description="Specific sources to search (optional)")
+            Optional[List[str]], Field(description="Specific sources to search (optional)")
         ] = None,
         categories: Annotated[
-            Optional[List[str]],
-            Field(description="Categories for dataset discovery (optional)")
+            Optional[List[str]], Field(description="Categories for dataset discovery (optional)")
         ] = None,
     ) -> str:
         """
@@ -68,49 +61,51 @@ def register_scientific_tools(mcp: FastMCP):
                     sources = ["semantic_scholar", "arxiv"]
 
                 result = await academic_orchestrator.search_academic_papers(
-                    query=query,
-                    sources=sources,
-                    limit=max_results
+                    query=query, sources=sources, limit=max_results
                 )
 
-                formatted_result = format_academic_search_markdown({
-                    "status": "success",
-                    "query": query,
-                    "results": result,
-                    "metadata": {
-                        "total_results": len(result),
-                        "sources_used": sources,
-                        "timestamp": "now",
-                    },
-                })
+                formatted_result = format_academic_search_markdown(
+                    {
+                        "status": "success",
+                        "query": query,
+                        "results": result,
+                        "metadata": {
+                            "total_results": len(result),
+                            "sources_used": sources,
+                            "timestamp": "now",
+                        },
+                    }
+                )
 
             elif operation == "dataset_discovery":
                 if categories is None:
                     categories = ["computer_science"]
 
                 result = await dataset_orchestrator.search_datasets(
-                    query=query,
-                    sources=sources,
-                    limit=max_results
+                    query=query, sources=sources, limit=max_results
                 )
 
-                formatted_result = format_dataset_discovery_markdown({
-                    "status": "success",
-                    "query": query,
-                    "datasets": result,
-                    "metadata": {
-                        "total_results": len(result),
-                        "categories_searched": categories,
-                        "timestamp": "now",
-                    },
-                })
+                formatted_result = format_dataset_discovery_markdown(
+                    {
+                        "status": "success",
+                        "query": query,
+                        "datasets": result,
+                        "metadata": {
+                            "total_results": len(result),
+                            "categories_searched": categories,
+                            "timestamp": "now",
+                        },
+                    }
+                )
 
             else:
-                formatted_result = format_academic_search_markdown({
-                    "status": "error",
-                    "error": f"Unknown operation: {operation}",
-                    "query": query,
-                })
+                formatted_result = format_academic_search_markdown(
+                    {
+                        "status": "error",
+                        "error": f"Unknown operation: {operation}",
+                        "query": query,
+                    }
+                )
 
             if ctx:
                 await ctx.report_progress(progress=100, total=100)

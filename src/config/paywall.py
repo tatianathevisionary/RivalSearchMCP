@@ -11,6 +11,7 @@ PAYWALL_INDICATORS = [
     "login to continue",
 ]
 
+
 def get_paywall_indicators():
     """Get list of paywall indicators."""
     return PAYWALL_INDICATORS.copy()

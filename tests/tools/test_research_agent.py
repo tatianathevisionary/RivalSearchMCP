@@ -22,21 +22,21 @@ async def test_workflow_default_params():
                 "topic": "Python programming",
                 "max_sources": 5,
                 "research_depth": "basic",
-                "enable_ai_insights": True  # Enable AI agent mode
-            }
+                "enable_ai_insights": True,  # Enable AI agent mode
+            },
         )
-        
+
         assert result.content, "No content returned"
         output = result.content[0].text
-        
+
         # Handle OpenRouter rate limits on free tier
         if "rate limit" in output.lower() or "error" in output.lower():
-            print(f"⚠️  OpenRouter rate limited or error - test passed (graceful handling)")
+            print("⚠️  OpenRouter rate limited or error - test passed (graceful handling)")
             assert len(output) > 50, f"Error message too short: {len(output)} chars"
         else:
             # AI agent mode produces comprehensive output
             assert len(output) > 500, f"Workflow output too short: {len(output)} chars"
-        
+
         print(f"✅ Default params test passed - {len(output)} chars")
 
 
@@ -49,14 +49,14 @@ async def test_workflow_basic_depth():
                 "topic": "JavaScript",
                 "max_sources": 5,
                 "research_depth": "basic",
-                "enable_ai_insights": True
-            }
+                "enable_ai_insights": True,
+            },
         )
-        
+
         output = result.content[0].text
         # AI agent mode produces rich output
         assert len(output) > 500, f"Basic research too short: {len(output)} chars"
-        
+
         print(f"✅ Basic depth test passed - {len(output)} chars")
 
 
@@ -69,19 +69,19 @@ async def test_workflow_comprehensive_depth():
                 "topic": "AI",
                 "max_sources": 5,
                 "research_depth": "comprehensive",
-                "enable_ai_insights": True
-            }
+                "enable_ai_insights": True,
+            },
         )
-        
+
         output = result.content[0].text
-        
+
         # Handle rate limits
         if "rate limit" in output.lower():
-            print(f"⚠️  OpenRouter rate limited - graceful handling")
+            print("⚠️  OpenRouter rate limited - graceful handling")
             assert len(output) > 50, "Error handling too minimal"
         else:
             assert len(output) > 500, f"Comprehensive research too short: {len(output)} chars"
-        
+
         print(f"✅ Comprehensive depth test passed - {len(output)} chars")
 
 
@@ -94,19 +94,19 @@ async def test_workflow_expert_depth():
                 "topic": "databases",
                 "max_sources": 5,
                 "research_depth": "expert",
-                "enable_ai_insights": True
-            }
+                "enable_ai_insights": True,
+            },
         )
-        
+
         output = result.content[0].text
-        
+
         # Handle rate limits
         if "rate limit" in output.lower():
-            print(f"⚠️  OpenRouter rate limited")
+            print("⚠️  OpenRouter rate limited")
             assert len(output) > 50, "Error handling too minimal"
         else:
             assert len(output) > 500, f"Expert research too short: {len(output)} chars"
-        
+
         print(f"✅ Expert depth test passed - {len(output)} chars")
 
 
@@ -120,19 +120,19 @@ async def test_workflow_max_sources():
                 "topic": "programming",
                 "max_sources": 5,
                 "research_depth": "basic",
-                "enable_ai_insights": True
-            }
+                "enable_ai_insights": True,
+            },
         )
-        
+
         output = result.content[0].text
-        
+
         # Handle rate limits
         if "rate limit" in output.lower():
-            print(f"⚠️  OpenRouter rate limited")
+            print("⚠️  OpenRouter rate limited")
             assert len(output) > 50, "Error handling too minimal"
         else:
             assert len(output) > 400, f"Output too short: {len(output)} chars"
-        
+
         print(f"✅ max_sources parameter test passed - {len(output)} chars")
 
 
@@ -146,18 +146,18 @@ async def test_workflow_with_trends():
                 "max_sources": 5,
                 "include_trends": True,
                 "research_depth": "basic",
-                "enable_ai_insights": True
-            }
+                "enable_ai_insights": True,
+            },
         )
-        
+
         output = result.content[0].text
-        
+
         # Handle rate limits
         if "rate limit" in output.lower():
-            print(f"⚠️  OpenRouter rate limited")
+            print("⚠️  OpenRouter rate limited")
         else:
             assert len(output) > 300, f"Output: {len(output)} chars"
-        
+
         print(f"✅ With trends test passed - {len(output)} chars")
 
 
@@ -171,18 +171,18 @@ async def test_workflow_without_trends():
                 "max_sources": 5,
                 "include_trends": False,
                 "research_depth": "basic",
-                "enable_ai_insights": True
-            }
+                "enable_ai_insights": True,
+            },
         )
-        
+
         output = result.content[0].text
-        
+
         # Handle rate limits
         if "rate limit" in output.lower():
-            print(f"⚠️  OpenRouter rate limited")
+            print("⚠️  OpenRouter rate limited")
         else:
             assert len(output) > 300, f"Output: {len(output)} chars"
-        
+
         print(f"✅ Without trends test passed - {len(output)} chars")
 
 
@@ -196,18 +196,18 @@ async def test_workflow_with_website_analysis():
                 "max_sources": 5,
                 "include_website_analysis": True,
                 "research_depth": "basic",
-                "enable_ai_insights": True
-            }
+                "enable_ai_insights": True,
+            },
         )
-        
+
         output = result.content[0].text
-        
+
         # Handle rate limits
         if "rate limit" in output.lower():
-            print(f"⚠️  OpenRouter rate limited")
+            print("⚠️  OpenRouter rate limited")
         else:
             assert len(output) > 300, f"Output: {len(output)} chars"
-        
+
         print(f"✅ With website analysis test passed - {len(output)} chars")
 
 
@@ -221,18 +221,18 @@ async def test_workflow_without_website_analysis():
                 "max_sources": 5,
                 "include_website_analysis": False,
                 "research_depth": "basic",
-                "enable_ai_insights": True
-            }
+                "enable_ai_insights": True,
+            },
         )
-        
+
         output = result.content[0].text
-        
+
         # Handle rate limits
         if "rate limit" in output.lower():
-            print(f"⚠️  OpenRouter rate limited")
+            print("⚠️  OpenRouter rate limited")
         else:
             assert len(output) > 300, f"Output: {len(output)} chars"
-        
+
         print(f"✅ Without website analysis test passed - {len(output)} chars")
 
 
@@ -247,27 +247,25 @@ async def test_workflow_comprehensive_all_features():
                 "include_trends": True,
                 "include_website_analysis": True,
                 "research_depth": "comprehensive",
-                "enable_ai_insights": True
-            }
+                "enable_ai_insights": True,
+            },
         )
-        
+
         output = result.content[0].text
-        
+
         # Handle rate limits
         if "rate limit" in output.lower():
-            print(f"⚠️  OpenRouter rate limited")
+            print("⚠️  OpenRouter rate limited")
             assert len(output) > 50, "Error handling too minimal"
         else:
             assert len(output) > 300, f"Comprehensive workflow: {len(output)} chars"
-            
+
             # Should have research structure
             has_structure = (
-                "#" in output or
-                "research" in output.lower() or
-                "topic" in output.lower()
+                "#" in output or "research" in output.lower() or "topic" in output.lower()
             )
             assert has_structure, "No research structure found"
-        
+
         print(f"✅ Comprehensive all features test passed - {len(output)} chars")
 
 

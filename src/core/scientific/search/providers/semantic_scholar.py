@@ -4,8 +4,9 @@ Handles searching and retrieving papers from Semantic Scholar API.
 """
 
 import asyncio
+from typing import Any, Dict, List, Optional
+
 import requests
-from typing import List, Dict, Optional, Any
 
 from src.logging.logger import logger
 
@@ -77,9 +78,7 @@ class SemanticScholarProvider:
             if response.status_code == 200:
                 data = response.json()
                 papers = data.get("data", [])
-                logger.info(
-                    f"Found {len(papers)} papers from Semantic Scholar for query: {query}"
-                )
+                logger.info(f"Found {len(papers)} papers from Semantic Scholar for query: {query}")
                 return papers
             else:
                 logger.warning(
@@ -91,7 +90,9 @@ class SemanticScholarProvider:
             logger.error(f"Error searching Semantic Scholar: {e}")
             return []
 
-    async def get_paper_details(self, paper_id: str, fields: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
+    async def get_paper_details(
+        self, paper_id: str, fields: Optional[List[str]] = None
+    ) -> Optional[Dict[str, Any]]:
         """
         Get detailed information for a specific paper.
 
@@ -103,7 +104,16 @@ class SemanticScholarProvider:
             Paper details or None if not found
         """
         if fields is None:
-            fields = ["title", "abstract", "authors", "year", "venue", "citationCount", "references", "citations"]
+            fields = [
+                "title",
+                "abstract",
+                "authors",
+                "year",
+                "venue",
+                "citationCount",
+                "references",
+                "citations",
+            ]
 
         params = {"fields": ",".join(fields)}
 

@@ -4,8 +4,9 @@ Handles searching and retrieving papers from PubMed API.
 """
 
 import asyncio
+from typing import Any, Dict, List, Optional
+
 import requests
-from typing import List, Dict, Optional, Any
 
 from src.logging.logger import logger
 
@@ -15,10 +16,12 @@ class PubMedProvider:
 
     def __init__(self):
         self.session = requests.Session()
-        self.session.headers.update({
-            "User-Agent": "RivalSearchMCP/1.0",
-            "Email": "research@example.com"  # Required by NCBI
-        })
+        self.session.headers.update(
+            {
+                "User-Agent": "RivalSearchMCP/1.0",
+                "Email": "research@example.com",  # Required by NCBI
+            }
+        )
 
     async def search(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
         """
@@ -51,9 +54,7 @@ class PubMedProvider:
             )
 
             if search_response.status_code != 200:
-                logger.warning(
-                    f"PubMed search API error: {search_response.status_code}"
-                )
+                logger.warning(f"PubMed search API error: {search_response.status_code}")
                 return []
 
             search_data = search_response.json()
@@ -73,16 +74,12 @@ class PubMedProvider:
 
             fetch_response = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: self.session.get(
-                    f"{base_url}efetch.fcgi", params=fetch_params, timeout=30
-                ),
+                lambda: self.session.get(f"{base_url}efetch.fcgi", params=fetch_params, timeout=30),
             )
 
             if fetch_response.status_code == 200:
                 papers = self._parse_pubmed_response(fetch_response.text)
-                logger.info(
-                    f"Found {len(papers)} papers from PubMed for query: {query}"
-                )
+                logger.info(f"Found {len(papers)} papers from PubMed for query: {query}")
                 return papers
             else:
                 logger.warning(f"PubMed fetch API error: {fetch_response.status_code}")
@@ -182,9 +179,7 @@ class PubMedProvider:
 
             response = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: self.session.get(
-                    f"{base_url}efetch.fcgi", params=params, timeout=30
-                ),
+                lambda: self.session.get(f"{base_url}efetch.fcgi", params=params, timeout=30),
             )
 
             if response.status_code == 200:

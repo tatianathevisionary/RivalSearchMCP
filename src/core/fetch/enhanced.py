@@ -10,8 +10,6 @@ from src.logging.logger import logger
 from src.utils import clean_html_to_markdown
 
 # Import the new multi-search system
-from ..search.core.multi_engines import MultiSearchResult
-
 from .base import base_fetch_url
 
 

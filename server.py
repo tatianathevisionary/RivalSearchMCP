@@ -4,34 +4,36 @@ RivalSearchMCP Server - Advanced Web Research and Content Discovery
 """
 
 import os
+
 from fastmcp import FastMCP
 
-# Import modular tool registration functions
+# Import logger
+from src.logging.logger import logger
 
-from src.tools.search import register_search_tools
-from src.tools.traversal import register_traversal_tools
-from src.tools.analysis import register_analysis_tools
-# from src.tools.trends import register_trends_tools  # REMOVED - Google rate limits
-from src.tools.research import register_research_tools
-from src.tools.scientific import register_scientific_tools
-from src.tools.social_media import register_social_media_tools
-from src.tools.news import register_news_tools
-from src.tools.github_tool import register_github_tools
-from src.tools.pdf_tool import register_pdf_tools
+# Import middleware
+from src.middleware import register_middleware
+from src.middleware.cors_validation import CORSOriginValidationMiddleware
+from src.middleware.null_id_validation import NullIdValidationMiddleware
 
 # Import prompts
 from src.prompts import register_prompts
 
-# Import middleware
-from src.middleware import register_middleware
-from src.middleware.null_id_validation import NullIdValidationMiddleware
-from src.middleware.cors_validation import CORSOriginValidationMiddleware
-
 # Import custom routes
 from src.routes.routes import register_custom_routes
+from src.tools.analysis import register_analysis_tools
+from src.tools.github_tool import register_github_tools
+from src.tools.news import register_news_tools
+from src.tools.pdf_tool import register_pdf_tools
 
-# Import logger
-from src.logging.logger import logger
+# from src.tools.trends import register_trends_tools  # REMOVED - Google rate limits
+from src.tools.research import register_research_tools
+from src.tools.scientific import register_scientific_tools
+from src.tools.search import register_search_tools
+from src.tools.social_media import register_social_media_tools
+from src.tools.traversal import register_traversal_tools
+
+# Import modular tool registration functions
+
 
 # Environment-based configuration
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
@@ -99,7 +101,7 @@ Research & Scientific:
 
 📊 MONITORING:
 - Health: /health
-- Metrics: /metrics  
+- Metrics: /metrics
 - Status: /status
 - Tools: /tools
 """
@@ -136,7 +138,8 @@ register_prompts(app)
 register_custom_routes(app)
 
 # Start background tasks that require event loop
-from src.middleware.middleware import start_background_tasks
+from src.middleware.middleware import start_background_tasks  # noqa: E402
+
 start_background_tasks()
 
 

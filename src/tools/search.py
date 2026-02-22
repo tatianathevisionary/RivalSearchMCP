@@ -3,14 +3,10 @@ Search tools for FastMCP server.
 Handles multi-engine search with Yahoo and DuckDuckGo engines.
 """
 
-from typing import Optional, Annotated
-from datetime import datetime
+from typing import Annotated
 
-from fastmcp import FastMCP
-from fastmcp import Context
+from fastmcp import Context, FastMCP
 from pydantic import Field
-
-from src.logging.logger import logger
 
 from src.tools.multi_search import web_search
 
@@ -55,9 +51,7 @@ def register_search_tools(mcp: FastMCP):
         ] = True,
         max_depth: Annotated[
             int,
-            Field(
-                description="Maximum depth for link following", ge=1, le=3, default=2
-            ),
+            Field(description="Maximum depth for link following", ge=1, le=3, default=2),
         ] = 2,
         use_fallback: Annotated[
             bool, Field(description="Whether to use fallback strategy", default=True)

@@ -4,8 +4,9 @@ Handles searching and retrieving datasets from HuggingFace Hub.
 """
 
 import asyncio
+from typing import Any, Dict, List, Optional
+
 import requests
-from typing import List, Dict, Optional, Any
 
 from src.logging.logger import logger
 
@@ -43,21 +44,19 @@ class HuggingFaceDatasetProvider:
 
             if response.status_code == 200:
                 datasets = response.json()
-                logger.info(
-                    f"Found {len(datasets)} datasets from HuggingFace for query: {query}"
-                )
+                logger.info(f"Found {len(datasets)} datasets from HuggingFace for query: {query}")
 
                 # Normalize and optimize HuggingFace dataset structure
                 normalized_datasets = []
                 for dataset in datasets[:limit]:
                     normalized = {
                         "id": dataset.get("id"),
-                        "title": dataset.get("id", "").split("/")[
-                            -1
-                        ],  # Extract dataset name
-                        "description": dataset.get("description", "")[:200]
-                        if dataset.get("description")
-                        else "",
+                        "title": dataset.get("id", "").split("/")[-1],  # Extract dataset name
+                        "description": (
+                            dataset.get("description", "")[:200]
+                            if dataset.get("description")
+                            else ""
+                        ),
                         "author": dataset.get("author"),
                         "url": f"https://huggingface.co/datasets/{dataset.get('id', '')}",
                         "downloads": dataset.get("downloads", 0),
@@ -67,9 +66,7 @@ class HuggingFaceDatasetProvider:
                         "source": "huggingface",
                     }
                     # Remove None/empty values
-                    normalized = {
-                        k: v for k, v in normalized.items() if v is not None and v != ""
-                    }
+                    normalized = {k: v for k, v in normalized.items() if v is not None and v != ""}
                     normalized_datasets.append(normalized)
 
                 return normalized_datasets

@@ -21,33 +21,28 @@ async def test_research_not_blocked():
             {
                 "topic": "Python programming best practices",
                 "max_sources": 3,
-                "include_analysis": True
-            }
+                "include_analysis": True,
+            },
         )
-        
+
         assert result.content, "No content returned"
         output = result.content[0].text
-        
+
         # Most critical: must not be blocked
         assert "blocked" not in output.lower(), "Research blocked by security middleware!"
         assert "suspicious content" not in output.lower(), "Research blocked!"
-        
-        print(f"✅ Research not blocked test passed")
+
+        print("✅ Research not blocked test passed")
 
 
 async def test_research_default_params():
     """Test research_topic with default parameters."""
     async with create_client() as client:
-        result = await client.call_tool(
-            "research_topic",
-            {
-                "topic": "machine learning"
-            }
-        )
-        
+        result = await client.call_tool("research_topic", {"topic": "machine learning"})
+
         output = result.content[0].text
         assert len(output) > 0, "Empty research output"
-        
+
         print(f"✅ Default params test passed - {len(output)} chars")
 
 
@@ -60,16 +55,18 @@ async def test_research_max_sources():
                 {
                     "topic": "Python programming",
                     "max_sources": max_sources,
-                    "include_analysis": False
-                }
+                    "include_analysis": False,
+                },
             )
-            
+
             output = result.content[0].text
             # Research may return minimal content if sources fail - verify tool executes
-            assert len(output) > 50, f"Output too minimal for max_sources={max_sources}: {len(output)} chars"
+            assert (
+                len(output) > 50
+            ), f"Output too minimal for max_sources={max_sources}: {len(output)} chars"
             print(f"  ✓ max_sources={max_sources} works")
-        
-        print(f"✅ max_sources parameter test passed")
+
+        print("✅ max_sources parameter test passed")
 
 
 async def test_research_with_analysis():
@@ -77,17 +74,13 @@ async def test_research_with_analysis():
     async with create_client() as client:
         result = await client.call_tool(
             "research_topic",
-            {
-                "topic": "machine learning",
-                "max_sources": 3,
-                "include_analysis": True
-            }
+            {"topic": "machine learning", "max_sources": 3, "include_analysis": True},
         )
-        
+
         output = result.content[0].text
         assert len(output) > 50, f"Research with analysis too short: {len(output)} chars"
-        
-        print(f"✅ Research with analysis test passed")
+
+        print("✅ Research with analysis test passed")
 
 
 async def test_research_without_analysis():
@@ -95,17 +88,13 @@ async def test_research_without_analysis():
     async with create_client() as client:
         result = await client.call_tool(
             "research_topic",
-            {
-                "topic": "web development",
-                "max_sources": 2,
-                "include_analysis": False
-            }
+            {"topic": "web development", "max_sources": 2, "include_analysis": False},
         )
-        
+
         output = result.content[0].text
         assert len(output) > 50, f"Research without analysis too short: {len(output)} chars"
-        
-        print(f"✅ Research without analysis test passed")
+
+        print("✅ Research without analysis test passed")
 
 
 async def test_research_with_sources():
@@ -117,14 +106,14 @@ async def test_research_with_sources():
                 "topic": "programming languages",
                 "sources": ["https://www.python.org", "https://github.com"],
                 "max_sources": 2,
-                "include_analysis": True
-            }
+                "include_analysis": True,
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 50, f"Research with sources too short: {len(output)} chars"
-        
-        print(f"✅ Research with sources test passed")
+
+        print("✅ Research with sources test passed")
 
 
 if __name__ == "__main__":

@@ -4,9 +4,10 @@ Handles searching and retrieving papers from arXiv API.
 """
 
 import asyncio
-import requests
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
 from urllib.parse import quote
+
+import requests
 
 from src.logging.logger import logger
 
@@ -52,7 +53,7 @@ class ArXivProvider:
             )
 
             if response.status_code == 200:
-                papers = self._parse_arxiv_response(response.text, limit)
+                papers = self._parse_arxiv_response(response.text, limit, query)
                 logger.info(f"Found {len(papers)} papers from arXiv for query: {query}")
                 return papers
             else:
@@ -63,42 +64,46 @@ class ArXivProvider:
             logger.error(f"Error searching arXiv: {e}")
             return []
 
-    def _parse_arxiv_response(self, xml_content: str, limit: int) -> List[Dict[str, Any]]:
+    def _parse_arxiv_response(
+        self, xml_content: str, limit: int, query: str = ""
+    ) -> List[Dict[str, Any]]:
         """Parse arXiv XML response."""
         try:
             import xml.etree.ElementTree as ET
 
             # arXiv uses Atom XML format
             root = ET.fromstring(xml_content)
-            namespace = {'atom': 'http://www.w3.org/2005/Atom'}
+            namespace = {"atom": "http://www.w3.org/2005/Atom"}
 
             papers = []
-            entries = root.findall('atom:entry', namespace)
+            entries = root.findall("atom:entry", namespace)
 
             for entry in entries[:limit]:
                 try:
                     # Extract basic information
-                    title_elem = entry.find('atom:title', namespace)
+                    title_elem = entry.find("atom:title", namespace)
                     title = title_elem.text.strip() if title_elem is not None else "Unknown Title"
 
-                    id_elem = entry.find('atom:id', namespace)
+                    id_elem = entry.find("atom:id", namespace)
                     url = id_elem.text.strip() if id_elem is not None else ""
 
                     # Extract authors
                     authors = []
-                    author_elems = entry.findall('atom:author', namespace)
+                    author_elems = entry.findall("atom:author", namespace)
                     for author_elem in author_elems:
-                        name_elem = author_elem.find('atom:name', namespace)
+                        name_elem = author_elem.find("atom:name", namespace)
                         if name_elem is not None:
                             authors.append({"name": name_elem.text.strip()})
 
                     # Extract publication date
-                    published_elem = entry.find('atom:published', namespace)
-                    published_date = published_elem.text.strip() if published_elem is not None else ""
+                    published_elem = entry.find("atom:published", namespace)
+                    published_date = (
+                        published_elem.text.strip() if published_elem is not None else ""
+                    )
                     year = published_date[:4] if published_date else None
 
                     # Extract abstract (summary)
-                    summary_elem = entry.find('atom:summary', namespace)
+                    summary_elem = entry.find("atom:summary", namespace)
                     abstract = summary_elem.text.strip() if summary_elem is not None else ""
 
                     paper = {
@@ -108,7 +113,7 @@ class ArXivProvider:
                         "url": url,
                         "year": year,
                         "source": "arxiv",
-                        "paperId": url.split('/')[-1] if url else None,
+                        "paperId": url.split("/")[-1] if url else None,
                     }
 
                     papers.append(paper)
@@ -122,11 +127,13 @@ class ArXivProvider:
         except Exception as e:
             logger.error(f"Error parsing arXiv XML response: {e}")
             # Fallback: return basic result
-            return [{
-                "title": f"arXiv search results for: {query}",
-                "url": f"https://arxiv.org/search/?query={quote(query)}",
-                "source": "arxiv",
-            }]
+            return [
+                {
+                    "title": f"arXiv search results for: {query}",
+                    "url": f"https://arxiv.org/search/?query={quote(query)}",
+                    "source": "arxiv",
+                }
+            ]
 
     async def get_paper_details(self, paper_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -146,7 +153,7 @@ class ArXivProvider:
             )
 
             if response.status_code == 200:
-                papers = self._parse_arxiv_response(response.text, 1)
+                papers = self._parse_arxiv_response(response.text, 1, paper_id)
                 return papers[0] if papers else None
             else:
                 logger.warning(f"Failed to get arXiv paper details: {response.status_code}")

@@ -47,22 +47,22 @@ def register_traversal_tools(mcp: FastMCP):
             elif mode == "map":
                 result = await map_website_structure(url, max_pages=max_pages)
             else:
-                return format_traversal_markdown({
-                    "success": False,
-                    "pages": [],
-                    "summary": f"Invalid mode: {mode}. Use 'research', 'docs', or 'map'",
-                    "total_pages": 0,
-                    "source": url,
-                })
+                return format_traversal_markdown(
+                    {
+                        "success": False,
+                        "pages": [],
+                        "summary": f"Invalid mode: {mode}. Use 'research', 'docs', or 'map'",
+                        "total_pages": 0,
+                        "source": url,
+                    }
+                )
 
             # Convert result to simple dict format with clean content
             pages = []
             for page_dict in result:
                 # Clean HTML content
                 raw_content = page_dict.get("content", "")
-                clean_content = clean_html_to_markdown(
-                    str(raw_content), page_dict.get("url", "")
-                )
+                clean_content = clean_html_to_markdown(str(raw_content), page_dict.get("url", ""))
 
                 pages.append(
                     {
@@ -107,11 +107,13 @@ This file contains information about {url} for Large Language Models.
 
         except Exception as e:
             logger.error(f"Website traversal failed for {url}: {e}")
-            return format_traversal_markdown({
-                "success": False,
-                "pages": [],
-                "summary": f"Error: {str(e)}",
-                "total_pages": 0,
-                "source": url,
-                "mode": mode,
-            })
+            return format_traversal_markdown(
+                {
+                    "success": False,
+                    "pages": [],
+                    "summary": f"Error: {str(e)}",
+                    "total_pages": 0,
+                    "source": url,
+                    "mode": mode,
+                }
+            )

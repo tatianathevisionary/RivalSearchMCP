@@ -16,19 +16,14 @@ from tests.mcp_client import create_client
 async def test_multi_search_default_params():
     """Test multi_search with default parameters."""
     async with create_client() as client:
-        result = await client.call_tool(
-            "web_search",
-            {
-                "query": "Python programming"
-            }
-        )
-        
+        result = await client.call_tool("web_search", {"query": "Python programming"})
+
         assert result.content, "No content returned"
         output = result.content[0].text
-        
+
         assert "Error" not in output or "search" in output.lower()
         assert len(output) > 400, f"Output too short: {len(output)} chars"
-        
+
         print(f"✅ Default params test passed - {len(output)} chars")
 
 
@@ -42,14 +37,14 @@ async def test_multi_search_num_results():
                 "query": "machine learning",
                 "num_results": 3,
                 "extract_content": False,
-                "follow_links": False
-            }
+                "follow_links": False,
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 200, f"Output too short for 3 results: {len(output)} chars"
-        
-        print(f"✅ num_results=3 test passed")
+
+        print("✅ num_results=3 test passed")
 
 
 async def test_multi_search_extract_content_flag():
@@ -58,19 +53,14 @@ async def test_multi_search_extract_content_flag():
         # Test with extract_content=False (faster)
         result = await client.call_tool(
             "web_search",
-            {
-                "query": "Python",
-                "num_results": 3,
-                "extract_content": False,
-                "follow_links": False
-            }
+            {"query": "Python", "num_results": 3, "extract_content": False, "follow_links": False},
         )
-        
+
         output = result.content[0].text
         assert len(output) > 0, "No output with extract_content=False"
         assert "http" in output.lower() or "result" in output.lower()
-        
-        print(f"✅ extract_content flag test passed")
+
+        print("✅ extract_content flag test passed")
 
 
 async def test_multi_search_use_fallback():
@@ -83,22 +73,20 @@ async def test_multi_search_use_fallback():
                 "query": "artificial intelligence",
                 "num_results": 5,
                 "use_fallback": True,
-                "extract_content": False
-            }
+                "extract_content": False,
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 300, f"Output too short: {len(output)} chars"
-        
+
         # Should have search results
         has_results = (
-            "result" in output.lower() or
-            "search" in output.lower() or
-            "http" in output.lower()
+            "result" in output.lower() or "search" in output.lower() or "http" in output.lower()
         )
         assert has_results, "No search results found"
-        
-        print(f"✅ use_fallback test passed")
+
+        print("✅ use_fallback test passed")
 
 
 async def test_multi_search_quality():
@@ -110,16 +98,16 @@ async def test_multi_search_quality():
                 "query": "TypeScript programming",
                 "num_results": 5,
                 "extract_content": False,
-                "follow_links": False
-            }
+                "follow_links": False,
+            },
         )
-        
+
         output = result.content[0].text
-        
+
         # Quality assertions
         assert len(output) > 500, f"Search results too short: {len(output)} chars"
         assert "http" in output.lower(), "No URLs in search results"
-        
+
         print(f"✅ Quality test passed - {len(output)} chars")
 
 

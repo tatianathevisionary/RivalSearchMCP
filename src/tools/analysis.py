@@ -9,8 +9,8 @@ from typing import List, Optional
 
 from fastmcp import FastMCP
 
-from src.utils.markdown_formatter import format_research_analysis_markdown
 from src.logging.logger import logger
+from src.utils.markdown_formatter import format_research_analysis_markdown
 
 
 def register_analysis_tools(mcp: FastMCP):
@@ -62,9 +62,7 @@ def register_analysis_tools(mcp: FastMCP):
                         if content:
                             break
                     except Exception as e:
-                        logger.warning(
-                            f"Content retrieval attempt {attempt + 1} failed: {e}"
-                        )
+                        logger.warning(f"Content retrieval attempt {attempt + 1} failed: {e}")
                         if attempt < max_retries - 1:
                             await asyncio.sleep(1)
 
@@ -96,9 +94,7 @@ def register_analysis_tools(mcp: FastMCP):
                         if content:
                             break
                     except Exception as e:
-                        logger.warning(
-                            f"Content streaming attempt {attempt + 1} failed: {e}"
-                        )
+                        logger.warning(f"Content streaming attempt {attempt + 1} failed: {e}")
                         if attempt < max_retries - 1:
                             await asyncio.sleep(1)
 
@@ -157,9 +153,7 @@ def register_analysis_tools(mcp: FastMCP):
                     if len(sentences) > 3:
                         summary_parts = [
                             sentences[0],
-                            sentences[len(sentences) // 2]
-                            if len(sentences) > 2
-                            else "",
+                            sentences[len(sentences) // 2] if len(sentences) > 2 else "",
                             sentences[-1] if len(sentences) > 1 else "",
                         ]
                         summary = ". ".join([s for s in summary_parts if s])
@@ -192,19 +186,13 @@ def register_analysis_tools(mcp: FastMCP):
                     ]
 
                     content_lower = content.lower()
-                    positive_count = sum(
-                        content_lower.count(word) for word in positive_words
-                    )
-                    negative_count = sum(
-                        content_lower.count(word) for word in negative_words
-                    )
+                    positive_count = sum(content_lower.count(word) for word in positive_words)
+                    negative_count = sum(content_lower.count(word) for word in negative_words)
 
                     sentiment = (
                         "positive"
                         if positive_count > negative_count
-                        else "negative"
-                        if negative_count > positive_count
-                        else "neutral"
+                        else "negative" if negative_count > positive_count else "neutral"
                     )
                     analysis_result["insights"]["sentiment"] = sentiment
 
@@ -219,9 +207,7 @@ def register_analysis_tools(mcp: FastMCP):
                     for pattern in technical_patterns:
                         matches = re.findall(pattern, content)
                         technical_terms.update(matches)
-                    analysis_result["insights"]["technical_terms"] = list(
-                        technical_terms
-                    )[:10]
+                    analysis_result["insights"]["technical_terms"] = list(technical_terms)[:10]
 
                 elif analysis_type == "business":
                     money_pattern = r"\$[\d,]+(?:\.\d{2})?"
@@ -251,20 +237,26 @@ def register_analysis_tools(mcp: FastMCP):
                     raise ValueError("URL required for extract operation")
 
                 # Real link extraction implementation
-                from src.core.fetch import base_fetch_url
                 from urllib.parse import urljoin, urlparse
+
+                from src.core.fetch import base_fetch_url
 
                 try:
                     content = await base_fetch_url(url)
                     if not content:
                         return format_research_analysis_markdown(
-                            {"topic": f"Link Extraction from {url}", "status": "error", "error": "Failed to fetch content"},
+                            {
+                                "topic": f"Link Extraction from {url}",
+                                "status": "error",
+                                "error": "Failed to fetch content",
+                            },
                             "Content Operations",
                         )
 
                     # Parse HTML and extract links
                     from bs4 import BeautifulSoup
-                    soup = BeautifulSoup(str(content), 'html.parser')
+
+                    soup = BeautifulSoup(str(content), "html.parser")
 
                     all_links = []
                     internal_links = []
@@ -275,9 +267,9 @@ def register_analysis_tools(mcp: FastMCP):
                     base_domain = urlparse(url).netloc
 
                     # Extract <a> tags
-                    for link in soup.find_all('a', href=True):
-                        href = link.get('href', '')
-                        if not href or href.startswith('#'):
+                    for link in soup.find_all("a", href=True):
+                        href = link.get("href", "")
+                        if not href or href.startswith("#"):
                             continue
 
                         absolute_url = urljoin(url, href)
@@ -286,7 +278,7 @@ def register_analysis_tools(mcp: FastMCP):
                         link_info = {
                             "url": absolute_url,
                             "text": link.get_text(strip=True)[:100] or "No text",
-                            "type": "internal" if link_domain == base_domain else "external"
+                            "type": "internal" if link_domain == base_domain else "external",
                         }
 
                         all_links.append(link_info)
@@ -297,18 +289,32 @@ def register_analysis_tools(mcp: FastMCP):
                             external_links.append(link_info)
 
                         # Check if it's a document
-                        if any(absolute_url.lower().endswith(ext) for ext in ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip']):
+                        if any(
+                            absolute_url.lower().endswith(ext)
+                            for ext in [
+                                ".pdf",
+                                ".doc",
+                                ".docx",
+                                ".xls",
+                                ".xlsx",
+                                ".ppt",
+                                ".pptx",
+                                ".zip",
+                            ]
+                        ):
                             document_links.append(link_info)
 
                     # Extract images
-                    for img in soup.find_all('img', src=True):
-                        src = img.get('src', '')
+                    for img in soup.find_all("img", src=True):
+                        src = img.get("src", "")
                         absolute_url = urljoin(url, src)
-                        image_links.append({
-                            "url": absolute_url,
-                            "alt": img.get('alt', 'No alt text'),
-                            "type": "image"
-                        })
+                        image_links.append(
+                            {
+                                "url": absolute_url,
+                                "alt": img.get("alt", "No alt text"),
+                                "type": "image",
+                            }
+                        )
 
                     # Select links based on link_type
                     if link_type == "internal":
@@ -327,7 +333,10 @@ def register_analysis_tools(mcp: FastMCP):
 
                     # Format result
                     result_summary = f"Extracted {len(selected_links)} {link_type} links from {url}"
-                    key_findings = [f"{link.get('text', link.get('alt', 'Link'))}: {link['url']}" for link in selected_links[:10]]
+                    key_findings = [
+                        f"{link.get('text', link.get('alt', 'Link'))}: {link['url']}"
+                        for link in selected_links[:10]
+                    ]
 
                     if link_type == "all":
                         result_summary += f" ({len(internal_links)} internal, {len(external_links)} external, {len(image_links)} images, {len(document_links)} documents)"
@@ -354,7 +363,11 @@ def register_analysis_tools(mcp: FastMCP):
                 except Exception as extract_error:
                     logger.error(f"Link extraction failed: {extract_error}")
                     return format_research_analysis_markdown(
-                        {"topic": f"Link Extraction from {url}", "status": "error", "error": str(extract_error)},
+                        {
+                            "topic": f"Link Extraction from {url}",
+                            "status": "error",
+                            "error": str(extract_error),
+                        },
                         "Content Operations",
                     )
 
@@ -370,7 +383,11 @@ def register_analysis_tools(mcp: FastMCP):
 
         # This should never be reached, but ensures type safety
         return format_research_analysis_markdown(
-            {"topic": "Content Operations", "status": "error", "error": "Unexpected execution path"},
+            {
+                "topic": "Content Operations",
+                "status": "error",
+                "error": "Unexpected execution path",
+            },
             "Content Operations",
         )
 

@@ -71,6 +71,7 @@ class RateLimiter:
         """
         # Bypass rate limiting during tests
         import os
+
         if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("TESTING"):
             return True, 999
 
@@ -97,8 +98,7 @@ class RateLimiter:
 
         # Calculate remaining capacity
         remaining = min(
-            self.burst_limit - len(client_tokens),
-            self.requests_per_minute - len(client_tokens)
+            self.burst_limit - len(client_tokens), self.requests_per_minute - len(client_tokens)
         )
 
         return True, remaining
@@ -135,18 +135,18 @@ class InputValidator:
     # Dangerous patterns to block
     DANGEROUS_PATTERNS = [
         r"(?i)<script[^>]*>.*?</script>",  # Script tags
-        r"(?i)<iframe[^>]*>.*?</iframe>",   # Iframes
-        r"(?i)<object[^>]*>.*?</object>",   # Object/embed tags
-        r"(?i)<embed[^>]*>.*?</embed>",     # Embed tags
-        r"(?i)javascript:",                 # JavaScript URLs
-        r"(?i)vbscript:",                   # VBScript URLs
-        r"(?i)on\w+\s*=",                   # Event handlers
-        r"(?i)eval\s*\(",                   # Eval calls
-        r"(?i)exec\s*\(",                   # Exec calls
-        r"(?i)import\s*\(",                 # Import calls
-        r"(?i)open\s*\(",                   # File open calls
-        r"(?i)\.\./",                       # Directory traversal
-        r"(?i)\.\.\\",                      # Windows directory traversal
+        r"(?i)<iframe[^>]*>.*?</iframe>",  # Iframes
+        r"(?i)<object[^>]*>.*?</object>",  # Object/embed tags
+        r"(?i)<embed[^>]*>.*?</embed>",  # Embed tags
+        r"(?i)javascript:",  # JavaScript URLs
+        r"(?i)vbscript:",  # VBScript URLs
+        r"(?i)on\w+\s*=",  # Event handlers
+        r"(?i)eval\s*\(",  # Eval calls
+        r"(?i)exec\s*\(",  # Exec calls
+        r"(?i)import\s*\(",  # Import calls
+        r"(?i)open\s*\(",  # File open calls
+        r"(?i)\.\./",  # Directory traversal
+        r"(?i)\.\.\\",  # Windows directory traversal
     ]
 
     # Allowed URL schemes
@@ -186,7 +186,9 @@ class InputValidator:
                 return False, "Query contains potentially dangerous content"
 
         # Basic sanitization - remove excessive special characters
-        cleaned_query = re.sub(r'[^\w\s\-_\.\(\)\[\]\{\}\+\=\&\^\%\$\#\@\!\?\,\;\:\'\"]+', '', query)
+        cleaned_query = re.sub(
+            r"[^\w\s\-_\.\(\)\[\]\{\}\+\=\&\^\%\$\#\@\!\?\,\;\:\'\"]+", "", query
+        )
 
         return True, cleaned_query
 
@@ -271,8 +273,13 @@ class InputValidator:
         return True, content
 
     @classmethod
-    def validate_numeric_param(cls, value: Any, param_name: str, min_val: Optional[int] = None,
-                             max_val: Optional[int] = None) -> Tuple[bool, Union[int, str]]:
+    def validate_numeric_param(
+        cls,
+        value: Any,
+        param_name: str,
+        min_val: Optional[int] = None,
+        max_val: Optional[int] = None,
+    ) -> Tuple[bool, Union[int, str]]:
         """
         Validate numeric parameters.
 
@@ -363,11 +370,15 @@ class SecurityMiddleware:
         if client_ip in self.blocked_ips:
             return False, "IP address blocked"
 
-        # Check rate limits
-        allowed, remaining = await self.rate_limiter.check_rate_limit(client_ip, user_agent)
+        # Skip rate limiting for stdio/local connections (no IP = trusted local process)
+        if client_ip == "unknown":
+            allowed, remaining = True, 999
+        else:
+            allowed, remaining = await self.rate_limiter.check_rate_limit(client_ip, user_agent)
+
         if not allowed:
             logger.warning(f"Rate limit exceeded for IP: {client_ip}")
-            return False, f"Rate limit exceeded. Try again later."
+            return False, "Rate limit exceeded. Try again later."
 
         # Validate parameters based on tool being called
         tool_name = request_data.get("tool_name", "")
@@ -379,7 +390,9 @@ class SecurityMiddleware:
 
         return True, f"Request allowed (rate limit remaining: {remaining})"
 
-    async def _validate_tool_parameters(self, tool_name: str, parameters: Dict[str, Any]) -> Tuple[bool, str]:
+    async def _validate_tool_parameters(
+        self, tool_name: str, parameters: Dict[str, Any]
+    ) -> Tuple[bool, str]:
         """Validate parameters for specific tools."""
         validator = self.validator
 

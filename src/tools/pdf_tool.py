@@ -12,23 +12,20 @@ from src.utils.markdown_formatter import format_document_markdown
 
 def register_pdf_tools(mcp: FastMCP):
     """Register document analysis tools."""
-    
+
     analyzer = DocumentAnalyzer()
-    
+
     @mcp.tool
     async def document_analysis(
-        url: str,
-        max_pages: int = 10,
-        extract_metadata: bool = True,
-        summary_length: int = 500
+        url: str, max_pages: int = 10, extract_metadata: bool = True, summary_length: int = 500
     ) -> str:
         """
         Download and analyze documents of multiple types with OCR support.
-        
+
         Supports: PDF, Word (.docx), Text (.txt, .md), Images (.jpg, .png) with OCR.
         Extracts text content and metadata without requiring authentication.
         Automatically uses OCR for scanned PDFs and images.
-        
+
         Args:
             url: URL of the document to analyze (PDF, Word, Text, etc.)
             max_pages: Maximum pages to extract (for PDFs, default: 10)
@@ -37,15 +34,13 @@ def register_pdf_tools(mcp: FastMCP):
         """
         try:
             logger.info(f"Document analysis for: {url}")
-            
+
             result = await analyzer.analyze_document(
-                url=url,
-                max_pages=max_pages,
-                extract_metadata=extract_metadata
+                url=url, max_pages=max_pages, extract_metadata=extract_metadata
             )
-            
+
             return format_document_markdown(result, summary_length)
-            
+
         except Exception as e:
             logger.error(f"Document analysis failed: {e}")
             return f"# 📄 Document Analysis\n\n❌ **Error:** {str(e)}"

@@ -3,7 +3,7 @@
 Middleware package for RivalSearchMCP.
 """
 
-from .middleware import *
+from .middleware import *  # noqa: F403
 
 __all__ = [
     # Middleware functionality

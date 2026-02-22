@@ -58,9 +58,7 @@ def _remove_unwanted_elements(soup: BeautifulSoup) -> None:
 
     # Remove elements with common ad IDs
     for element in soup.find_all(
-        id=re.compile(
-            r"(ad|ads|banner|tracking|analytics|cookie|popup|modal|overlay)", re.I
-        )
+        id=re.compile(r"(ad|ads|banner|tracking|analytics|cookie|popup|modal|overlay)", re.I)
     ):
         element.decompose()
 
@@ -207,9 +205,7 @@ def _process_table_element(element: Tag) -> str:
             for row in rows[1:]:
                 if isinstance(row, Tag):
                     cells = [
-                        td.get_text(strip=True)
-                        for td in row.find_all("td")
-                        if isinstance(td, Tag)
+                        td.get_text(strip=True) for td in row.find_all("td") if isinstance(td, Tag)
                     ]
                     if cells:
                         table_lines.append("| " + " | ".join(cells) + " |")

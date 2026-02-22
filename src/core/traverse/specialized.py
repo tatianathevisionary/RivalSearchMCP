@@ -9,9 +9,7 @@ from typing import Any, Dict, List
 from .core import WebsiteTraverser
 
 
-async def research_topic(
-    url: str, max_pages: int = 20, max_depth: int = 2
-) -> List[Dict[str, Any]]:
+async def research_topic(url: str, max_pages: int = 20, max_depth: int = 2) -> List[Dict[str, Any]]:
     """
     Research a topic by traversing relevant websites.
 
@@ -68,8 +66,7 @@ async def map_website_structure(
         page["structure_info"] = {
             "depth": page["url"].count("/") - 2,  # Rough depth calculation
             "is_homepage": page["url"].rstrip("/") == website_url.rstrip("/"),
-            "has_navigation": "nav" in page["html"].lower()
-            or "menu" in page["html"].lower(),
+            "has_navigation": "nav" in page["html"].lower() or "menu" in page["html"].lower(),
         }
 
     return pages

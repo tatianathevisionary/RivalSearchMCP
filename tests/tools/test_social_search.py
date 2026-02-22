@@ -22,14 +22,14 @@ async def test_reddit_search():
                 "query": "Python web frameworks",
                 "platforms": ["reddit"],
                 "max_results_per_platform": 5,
-                "reddit_subreddit": "Python"
-            }
+                "reddit_subreddit": "Python",
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 200, f"Reddit search output too short: {len(output)} chars"
         assert "reddit" in output.lower(), "No Reddit results found"
-        
+
         print(f"✅ Reddit search test passed - {len(output)} chars")
 
 
@@ -38,17 +38,13 @@ async def test_hackernews_search():
     async with create_client() as client:
         result = await client.call_tool(
             "social_search",
-            {
-                "query": "TypeScript",
-                "platforms": ["hackernews"],
-                "max_results_per_platform": 5
-            }
+            {"query": "TypeScript", "platforms": ["hackernews"], "max_results_per_platform": 5},
         )
-        
+
         output = result.content[0].text
         assert len(output) > 200, f"Hacker News search output too short: {len(output)} chars"
         assert "hacker" in output.lower() or "news" in output.lower()
-        
+
         print(f"✅ Hacker News search test passed - {len(output)} chars")
 
 
@@ -57,16 +53,12 @@ async def test_devto_search():
     async with create_client() as client:
         result = await client.call_tool(
             "social_search",
-            {
-                "query": "React",
-                "platforms": ["devto"],
-                "max_results_per_platform": 5
-            }
+            {"query": "React", "platforms": ["devto"], "max_results_per_platform": 5},
         )
-        
+
         output = result.content[0].text
         assert len(output) > 100, f"Dev.to search output too short: {len(output)} chars"
-        
+
         print(f"✅ Dev.to search test passed - {len(output)} chars")
 
 
@@ -78,13 +70,13 @@ async def test_all_platforms():
             {
                 "query": "JavaScript",
                 "platforms": ["reddit", "hackernews", "devto"],
-                "max_results_per_platform": 3
-            }
+                "max_results_per_platform": 3,
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 300, f"Multi-platform search too short: {len(output)} chars"
-        
+
         print(f"✅ All platforms test passed - {len(output)} chars")
 
 
@@ -97,14 +89,14 @@ async def test_time_filter():
                 "query": "Python",
                 "platforms": ["reddit"],
                 "time_filter": "week",
-                "max_results_per_platform": 5
-            }
+                "max_results_per_platform": 5,
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 100, "Time filter test output too short"
-        
-        print(f"✅ Time filter test passed")
+
+        print("✅ Time filter test passed")
 
 
 if __name__ == "__main__":

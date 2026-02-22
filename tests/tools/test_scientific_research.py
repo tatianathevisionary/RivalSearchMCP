@@ -18,37 +18,29 @@ async def test_academic_no_type_error():
     async with create_client() as client:
         result = await client.call_tool(
             "scientific_research",
-            {
-                "operation": "academic_search",
-                "query": "machine learning",
-                "max_results": 3
-            }
+            {"operation": "academic_search", "query": "machine learning", "max_results": 3},
         )
-        
+
         assert result.content, "No content returned"
         output = result.content[0].text
-        
+
         # Most critical: must not have type error
         assert "bad operand type" not in output.lower(), "TYPE ERROR STILL PRESENT!"
         assert "Error" not in output or "paper" in output.lower() or "academic" in output.lower()
-        
-        print(f"✅ Type error fix verified - No 'bad operand' error")
+
+        print("✅ Type error fix verified - No 'bad operand' error")
 
 
 async def test_academic_search_default():
     """Test academic_search with default parameters."""
     async with create_client() as client:
         result = await client.call_tool(
-            "scientific_research",
-            {
-                "operation": "academic_search",
-                "query": "neural networks"
-            }
+            "scientific_research", {"operation": "academic_search", "query": "neural networks"}
         )
-        
+
         output = result.content[0].text
         assert len(output) > 0, "Empty academic search output"
-        
+
         print(f"✅ Academic search default test passed - {len(output)} chars")
 
 
@@ -61,15 +53,15 @@ async def test_academic_search_max_results():
                 {
                     "operation": "academic_search",
                     "query": "deep learning",
-                    "max_results": max_results
-                }
+                    "max_results": max_results,
+                },
             )
-            
+
             output = result.content[0].text
             assert len(output) > 200, f"Output too short for max_results={max_results}"
             print(f"  ✓ max_results={max_results} works")
-        
-        print(f"✅ max_results parameter test passed")
+
+        print("✅ max_results parameter test passed")
 
 
 async def test_academic_search_arxiv_source():
@@ -81,14 +73,14 @@ async def test_academic_search_arxiv_source():
                 "operation": "academic_search",
                 "query": "transformer models",
                 "max_results": 5,
-                "sources": ["arxiv"]
-            }
+                "sources": ["arxiv"],
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 200, "arXiv search output too minimal"
-        
-        print(f"✅ arXiv source test passed")
+
+        print("✅ arXiv source test passed")
 
 
 async def test_academic_search_semantic_scholar():
@@ -100,14 +92,14 @@ async def test_academic_search_semantic_scholar():
                 "operation": "academic_search",
                 "query": "computer vision",
                 "max_results": 5,
-                "sources": ["semantic_scholar"]
-            }
+                "sources": ["semantic_scholar"],
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 100, "Semantic Scholar search output too minimal"
-        
-        print(f"✅ Semantic Scholar source test passed")
+
+        print("✅ Semantic Scholar source test passed")
 
 
 async def test_academic_search_multiple_sources():
@@ -119,14 +111,14 @@ async def test_academic_search_multiple_sources():
                 "operation": "academic_search",
                 "query": "reinforcement learning",
                 "max_results": 5,
-                "sources": ["arxiv", "semantic_scholar"]
-            }
+                "sources": ["arxiv", "semantic_scholar"],
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 200, "Multiple sources search output too minimal"
-        
-        print(f"✅ Multiple sources test passed")
+
+        print("✅ Multiple sources test passed")
 
 
 async def test_dataset_discovery_default():
@@ -134,16 +126,13 @@ async def test_dataset_discovery_default():
     async with create_client() as client:
         result = await client.call_tool(
             "scientific_research",
-            {
-                "operation": "dataset_discovery",
-                "query": "image classification"
-            }
+            {"operation": "dataset_discovery", "query": "image classification"},
         )
-        
+
         output = result.content[0].text
         assert len(output) > 0, "Empty dataset discovery output"
-        
-        print(f"✅ Dataset discovery default test passed")
+
+        print("✅ Dataset discovery default test passed")
 
 
 async def test_dataset_discovery_max_results():
@@ -154,14 +143,14 @@ async def test_dataset_discovery_max_results():
             {
                 "operation": "dataset_discovery",
                 "query": "natural language processing",
-                "max_results": 5
-            }
+                "max_results": 5,
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 100, "Dataset discovery output too minimal"
-        
-        print(f"✅ Dataset discovery max_results test passed")
+
+        print("✅ Dataset discovery max_results test passed")
 
 
 async def test_dataset_discovery_with_categories():
@@ -173,14 +162,14 @@ async def test_dataset_discovery_with_categories():
                 "operation": "dataset_discovery",
                 "query": "time series",
                 "max_results": 3,
-                "categories": ["computer_science"]
-            }
+                "categories": ["computer_science"],
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 50, "Dataset discovery with categories too minimal"
-        
-        print(f"✅ Dataset discovery with categories test passed")
+
+        print("✅ Dataset discovery with categories test passed")
 
 
 if __name__ == "__main__":

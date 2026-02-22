@@ -4,16 +4,15 @@ Provides comprehensive search across multiple engines with fallback support.
 """
 
 import asyncio
-from typing import Any, Dict, List, Optional
 from datetime import datetime
+from typing import Any, Dict
 
 from fastmcp import Context
-from src.core.search.core.multi_engines import MultiSearchResult
+
 from src.core.search.engines.duckduckgo.duckduckgo_engine import DuckDuckGoSearchEngine
-from src.core.search.engines.yahoo.yahoo_engine import YahooSearchEngine
 from src.core.search.engines.wikipedia.wikipedia_engine import WikipediaSearchEngine
-from src.utils.markdown_formatter import format_multi_search_markdown
 from src.logging.logger import logger
+from src.utils.markdown_formatter import format_multi_search_markdown
 
 
 class MultiSearchOrchestrator:
@@ -22,10 +21,9 @@ class MultiSearchOrchestrator:
     def __init__(self):
         self.engines = {
             "duckduckgo": DuckDuckGoSearchEngine(),
-            "yahoo": YahooSearchEngine(),
             "wikipedia": WikipediaSearchEngine(),
         }
-        self.engine_order = ["duckduckgo", "yahoo", "wikipedia"]  # Priority order
+        self.engine_order = ["duckduckgo", "wikipedia"]
 
     async def search_all_engines(
         self,
@@ -37,7 +35,7 @@ class MultiSearchOrchestrator:
     ) -> Dict[str, Any]:
         """
         Search across ALL engines concurrently with deduplication.
-        
+
         All engines run simultaneously, results are combined and deduplicated by URL.
 
         Args:
@@ -51,7 +49,7 @@ class MultiSearchOrchestrator:
             Dictionary with deduplicated results from all engines
         """
         logger.info(f"Starting concurrent search across {len(self.engines)} engines for: {query}")
-        
+
         # Search all engines concurrently
         search_tasks = []
         for engine_name, engine in self.engines.items():
@@ -63,21 +61,20 @@ class MultiSearchOrchestrator:
                 max_depth=max_depth,
             )
             search_tasks.append((engine_name, task))
-        
+
         # Execute all searches in parallel
         search_results = await asyncio.gather(
-            *[task for _, task in search_tasks],
-            return_exceptions=True
+            *[task for _, task in search_tasks], return_exceptions=True
         )
-        
+
         # Process results from each engine
         results = {}
         all_results = []
         successful_engines = 0
-        
+
         for i, (engine_name, _) in enumerate(search_tasks):
             engine_result = search_results[i]
-            
+
             if isinstance(engine_result, Exception):
                 logger.error(f"{engine_name} search failed: {engine_result}")
                 results[engine_name] = {
@@ -104,7 +101,7 @@ class MultiSearchOrchestrator:
                     "results": [],
                     "timestamp": datetime.now().isoformat(),
                 }
-        
+
         # Deduplicate by URL
         seen_urls = set()
         deduplicated_results = []
@@ -113,8 +110,10 @@ class MultiSearchOrchestrator:
             if url not in seen_urls:
                 seen_urls.add(url)
                 deduplicated_results.append(result)
-        
-        logger.info(f"Deduplicated {len(all_results)} results to {len(deduplicated_results)} unique results")
+
+        logger.info(
+            f"Deduplicated {len(all_results)} results to {len(deduplicated_results)} unique results"
+        )
 
         # Generate summary
         summary = {
@@ -204,7 +203,7 @@ async def web_search(
     Returns:
         Comprehensive search results from multiple engines
     """
-    from src.core.cache.cache_manager import get_cache_manager, cached_operation
+    from src.core.cache.cache_manager import get_cache_manager
 
     try:
         await ctx.info(f"🔍 Starting multi-engine search for: {query}")

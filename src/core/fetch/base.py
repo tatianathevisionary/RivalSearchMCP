@@ -85,11 +85,11 @@ async def stream_fetch(
 # Unified Fetcher Classes
 class BaseFetcher:
     """Base class for all fetchers."""
-    
+
     def __init__(self):
         """Initialize the fetcher."""
         pass
-    
+
     async def fetch(self, resource: str, **kwargs) -> Any:
         """Fetch content using the fetcher's method."""
         raise NotImplementedError("Subclasses must implement fetch method")
@@ -97,7 +97,7 @@ class BaseFetcher:
 
 class URLFetcher(BaseFetcher):
     """Base URL fetching with optimized performance."""
-    
+
     async def fetch(self, url: str, **kwargs) -> Optional[str]:
         """Fetch content from a URL with optimized performance."""
         return await base_fetch_url(url, **kwargs)
@@ -105,32 +105,34 @@ class URLFetcher(BaseFetcher):
 
 class BatchFetcher(BaseFetcher):
     """Batch URL fetching with concurrency control."""
-    
+
     async def fetch(self, urls: List[str], **kwargs) -> List[Dict[str, Any]]:
         """Batch retrieve content from multiple URLs with concurrency control."""
         from .batch import batch_rival_retrieve
+
         return await batch_rival_retrieve(urls, **kwargs)
 
 
 class EnhancedFetcher(BaseFetcher):
     """Enhanced fetching with search integration and fallback logic."""
-    
+
     async def fetch(self, resource: str, **kwargs) -> Any:
         """Enhanced retrieval that handles URLs, search queries, and Google search integration."""
         from .enhanced import rival_retrieve
+
         return await rival_retrieve(resource, **kwargs)
 
 
 class UnifiedFetcher(BaseFetcher):
     """Unified fetcher with multiple strategies and fallbacks."""
-    
+
     def __init__(self):
         """Initialize the unified fetcher."""
         super().__init__()
         self.url_fetcher = URLFetcher()
         self.batch_fetcher = BatchFetcher()
         self.enhanced_fetcher = EnhancedFetcher()
-    
+
     async def fetch(self, resource: Union[str, List[str]], **kwargs) -> Any:
         """Fetch content using the best available method."""
         if isinstance(resource, list):

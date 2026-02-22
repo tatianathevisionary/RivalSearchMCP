@@ -4,12 +4,13 @@ Coordinates searching across multiple dataset repositories.
 """
 
 import asyncio
-from typing import List, Dict, Optional, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from src.logging.logger import logger
-from .providers.kaggle import KaggleDatasetProvider
+
 from .providers.huggingface import HuggingFaceDatasetProvider
+from .providers.kaggle import KaggleDatasetProvider
 
 
 class DatasetDiscoveryOrchestrator:
@@ -22,11 +23,7 @@ class DatasetDiscoveryOrchestrator:
         }
 
     async def search_datasets(
-        self,
-        query: str,
-        sources: List[str] = None,
-        limit: int = 20,
-        **kwargs
+        self, query: str, sources: List[str] = None, limit: int = 20, **kwargs
     ) -> List[Dict[str, Any]]:
         """
         Search for datasets across multiple sources.
@@ -53,7 +50,7 @@ class DatasetDiscoveryOrchestrator:
         search_tasks = []
         for source in valid_sources:
             provider = self.providers[source]
-            search_method = getattr(provider, 'search', None)
+            search_method = getattr(provider, "search", None)
             if search_method:
                 task = search_method(query, limit, **kwargs)
                 search_tasks.append((source, task))
@@ -65,8 +62,7 @@ class DatasetDiscoveryOrchestrator:
         if search_tasks:
             try:
                 search_results = await asyncio.gather(
-                    *[task for _, task in search_tasks],
-                    return_exceptions=True
+                    *[task for _, task in search_tasks], return_exceptions=True
                 )
 
                 for i, (source, _) in enumerate(search_tasks):
@@ -110,7 +106,9 @@ class DatasetDiscoveryOrchestrator:
             )
         )
 
-        logger.info(f"Dataset search completed: {len(deduplicated_datasets)} unique datasets from {len(valid_sources)} sources")
+        logger.info(
+            f"Dataset search completed: {len(deduplicated_datasets)} unique datasets from {len(valid_sources)} sources"
+        )
         return deduplicated_datasets[:limit]  # Return only requested limit
 
     async def get_dataset_details(self, dataset_id: str, source: str) -> Optional[Dict[str, Any]]:
@@ -129,7 +127,7 @@ class DatasetDiscoveryOrchestrator:
             return None
 
         provider = self.providers[source]
-        details_method = getattr(provider, 'get_dataset_details', None)
+        details_method = getattr(provider, "get_dataset_details", None)
         if details_method:
             try:
                 return await details_method(dataset_id)
@@ -141,11 +139,7 @@ class DatasetDiscoveryOrchestrator:
             return None
 
     async def search_combined_datasets(
-        self,
-        query: str,
-        sources: List[str] = None,
-        max_results: int = 50,
-        **kwargs
+        self, query: str, sources: List[str] = None, max_results: int = 50, **kwargs
     ) -> Dict[str, Any]:
         """
         Comprehensive dataset search with metadata.
@@ -162,10 +156,7 @@ class DatasetDiscoveryOrchestrator:
         start_time = datetime.now()
 
         datasets = await self.search_datasets(
-            query=query,
-            sources=sources,
-            limit=max_results,
-            **kwargs
+            query=query, sources=sources, limit=max_results, **kwargs
         )
 
         end_time = datetime.now()
@@ -184,7 +175,9 @@ class DatasetDiscoveryOrchestrator:
             "query": query,
             "total_results": len(datasets),
             "sources_searched": sources_used,
-            "results_by_source": {source: len(datasets) for source, datasets in datasets_by_source.items()},
+            "results_by_source": {
+                source: len(datasets) for source, datasets in datasets_by_source.items()
+            },
             "search_duration_seconds": duration,
             "timestamp": end_time.isoformat(),
         }

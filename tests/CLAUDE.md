@@ -139,7 +139,7 @@ Each test file tests **ALL parameters**:
 - **test_multi_search.py** (5 tests)
   - query, num_results, extract_content, follow_links, max_depth, use_fallback
 
-- **test_trends_core.py** (6 tests)  
+- **test_trends_core.py** (6 tests)
   - operation (search/related/regional/compare), keywords, timeframe, geo, resolution
 
 - **test_trends_export.py** (6 tests)

@@ -4,8 +4,9 @@ Handles searching and retrieving datasets from Kaggle API.
 """
 
 import asyncio
+from typing import Any, Dict, List, Optional
+
 import requests
-from typing import List, Dict, Optional, Any
 
 from src.logging.logger import logger
 
@@ -18,10 +19,7 @@ class KaggleDatasetProvider:
         self.session.headers.update({"User-Agent": "RivalSearchMCP/1.0"})
 
     async def search(
-        self,
-        query: str,
-        limit: int = 20,
-        sort_by: str = "relevance"
+        self, query: str, limit: int = 20, sort_by: str = "relevance"
     ) -> List[Dict[str, Any]]:
         """
         Search datasets on Kaggle.
@@ -55,9 +53,7 @@ class KaggleDatasetProvider:
 
             if response.status_code == 200:
                 datasets = response.json()
-                logger.info(
-                    f"Found {len(datasets)} datasets from Kaggle for query: {query}"
-                )
+                logger.info(f"Found {len(datasets)} datasets from Kaggle for query: {query}")
 
                 # Normalize and optimize Kaggle dataset structure
                 normalized_datasets = []
@@ -66,9 +62,7 @@ class KaggleDatasetProvider:
                     normalized = {
                         "id": dataset.get("id"),
                         "title": dataset.get("title", dataset.get("titleNullable", "")),
-                        "description": dataset.get(
-                            "subtitle", dataset.get("subtitleNullable", "")
-                        ),
+                        "description": dataset.get("subtitle", dataset.get("subtitleNullable", "")),
                         "owner_name": dataset.get(
                             "ownerName", dataset.get("ownerNameNullable", "")
                         ),
@@ -76,9 +70,7 @@ class KaggleDatasetProvider:
                         "license": dataset.get(
                             "licenseName", dataset.get("licenseNameNullable", "")
                         ),
-                        "size_bytes": dataset.get(
-                            "totalBytes", dataset.get("totalBytesNullable")
-                        ),
+                        "size_bytes": dataset.get("totalBytes", dataset.get("totalBytesNullable")),
                         "download_count": dataset.get("downloadCount", 0),
                         "vote_count": dataset.get("voteCount", 0),
                         "last_updated": dataset.get("lastUpdated"),
@@ -90,12 +82,15 @@ class KaggleDatasetProvider:
                         "source": "kaggle",
                     }
                     # Remove None values to reduce payload size
-                    normalized = {
-                        k: v for k, v in normalized.items() if v is not None and v != ""
-                    }
+                    normalized = {k: v for k, v in normalized.items() if v is not None and v != ""}
                     normalized_datasets.append(normalized)
 
                 return normalized_datasets
+            elif response.status_code == 400:
+                logger.debug(
+                    "Kaggle API requires authentication (kaggle.json). Using other sources."
+                )
+                return []
             else:
                 logger.warning(f"Kaggle API error: {response.status_code}")
                 return []

@@ -13,9 +13,7 @@ from src.logging.logger import logger
 from .base import base_fetch_url
 
 
-async def batch_rival_retrieve(
-    urls: List[str], max_concurrent: int = 10
-) -> List[Dict[str, Any]]:
+async def batch_rival_retrieve(urls: List[str], max_concurrent: int = 10) -> List[Dict[str, Any]]:
     """
     Batch retrieve content from multiple URLs with concurrency control.
 
@@ -66,5 +64,7 @@ async def batch_rival_retrieve(
         elif isinstance(result, Exception):
             logger.error(f"Task failed with exception: {result}")
 
-    logger.info(f"Completed batch retrieval: {len(valid_results)} successful, {len(urls) - len(valid_results)} failed")
+    logger.info(
+        f"Completed batch retrieval: {len(valid_results)} successful, {len(urls) - len(valid_results)} failed"
+    )
     return valid_results

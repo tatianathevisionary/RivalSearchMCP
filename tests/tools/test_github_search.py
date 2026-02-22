@@ -17,23 +17,19 @@ async def test_github_basic():
     """Test basic GitHub repository search."""
     async with create_client() as client:
         result = await client.call_tool(
-            "github_search",
-            {
-                "query": "web framework",
-                "max_results": 5
-            }
+            "github_search", {"query": "web framework", "max_results": 5}
         )
-        
+
         output = result.content[0].text
-        
+
         # Handle potential rate limiting
         if "rate limit" in output.lower() or "error" in output.lower():
-            print(f"⚠️  GitHub API rate limited - test passed (graceful handling)")
+            print("⚠️  GitHub API rate limited - test passed (graceful handling)")
             assert len(output) > 50, "Error message too short"
         else:
             assert len(output) > 300, f"GitHub output too short: {len(output)} chars"
             assert "github" in output.lower() or "repository" in output.lower()
-        
+
         print(f"✅ Basic GitHub search test passed - {len(output)} chars")
 
 
@@ -41,24 +37,19 @@ async def test_github_language_filter():
     """Test GitHub search with language filter."""
     async with create_client() as client:
         result = await client.call_tool(
-            "github_search",
-            {
-                "query": "machine learning",
-                "language": "Python",
-                "max_results": 5
-            }
+            "github_search", {"query": "machine learning", "language": "Python", "max_results": 5}
         )
-        
+
         output = result.content[0].text
-        
+
         # Handle rate limiting
         if "rate limit" in output.lower():
-            print(f"⚠️  GitHub rate limited")
+            print("⚠️  GitHub rate limited")
             assert len(output) > 50, "Error handling too minimal"
         else:
             assert len(output) > 200, "Language filter output too short"
-        
-        print(f"✅ Language filter test passed")
+
+        print("✅ Language filter test passed")
 
 
 async def test_github_sort_options():
@@ -66,43 +57,33 @@ async def test_github_sort_options():
     async with create_client() as client:
         for sort in ["stars", "forks"]:
             result = await client.call_tool(
-                "github_search",
-                {
-                    "query": "React",
-                    "sort": sort,
-                    "max_results": 3
-                }
+                "github_search", {"query": "React", "sort": sort, "max_results": 3}
             )
-            
+
             output = result.content[0].text
             assert len(output) > 100, f"Output too short for sort={sort}"
             print(f"  ✓ sort={sort} works")
-        
-        print(f"✅ Sort options test passed")
+
+        print("✅ Sort options test passed")
 
 
 async def test_github_quality():
     """Test that GitHub returns quality repository information."""
     async with create_client() as client:
         result = await client.call_tool(
-            "github_search",
-            {
-                "query": "TypeScript",
-                "language": "TypeScript",
-                "max_results": 5
-            }
+            "github_search", {"query": "TypeScript", "language": "TypeScript", "max_results": 5}
         )
-        
+
         output = result.content[0].text
-        
+
         # Handle rate limiting
         if "rate limit" in output.lower():
-            print(f"⚠️  GitHub rate limited")
+            print("⚠️  GitHub rate limited")
             assert len(output) > 50, "Error handling too minimal"
         else:
             assert len(output) > 200, f"GitHub quality output: {len(output)} chars"
-        
-        print(f"✅ GitHub quality test passed")
+
+        print("✅ GitHub quality test passed")
 
 
 if __name__ == "__main__":

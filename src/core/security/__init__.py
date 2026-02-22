@@ -23,9 +23,11 @@ class SecurityManager:
     def block_ip(self, ip_address: str):
         """Block an IP address."""
         import asyncio
+
         return asyncio.create_task(self._middleware.block_ip(ip_address))
 
     def unblock_ip(self, ip_address: str):
         """Unblock an IP address."""
         import asyncio
+
         return asyncio.create_task(self._middleware.unblock_ip(ip_address))

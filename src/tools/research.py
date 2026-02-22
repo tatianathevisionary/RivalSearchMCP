@@ -4,11 +4,11 @@ Provides AI-enhanced research workflow tools.
 """
 
 from typing import Literal
-from fastmcp import FastMCP, Context
+
+from fastmcp import Context, FastMCP
 from pydantic import Field
 from typing_extensions import Annotated
 
-from src.logging.logger import logger
 from .research_modules.research_workflow import ResearchWorkflowExecutor
 
 
@@ -44,7 +44,7 @@ def register_research_tools(mcp: FastMCP):
             str,
             Field(
                 description="Research topic to investigate",
-                min_length=3,
+                min_length=2,
                 max_length=500,
             ),
         ],
@@ -76,9 +76,7 @@ def register_research_tools(mcp: FastMCP):
         ] = "meta-llama/llama-3.1-8b-instruct:free",
         enable_ai_insights: Annotated[
             bool,
-            Field(
-                description="Whether to generate AI-powered insights and recommendations"
-            ),
+            Field(description="Whether to generate AI-powered insights and recommendations"),
         ] = True,
     ) -> str:
         """

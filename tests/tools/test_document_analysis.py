@@ -21,14 +21,14 @@ async def test_pdf_basic():
             "document_analysis",
             {
                 "url": "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-                "max_pages": 5
-            }
+                "max_pages": 5,
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 100, f"PDF output too short: {len(output)} chars"
         assert "pdf" in output.lower(), "No PDF content found"
-        
+
         print(f"✅ Basic PDF test passed - {len(output)} chars")
 
 
@@ -39,14 +39,14 @@ async def test_pdf_max_pages():
             "document_analysis",
             {
                 "url": "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-                "max_pages": 3
-            }
+                "max_pages": 3,
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 50, "max_pages output too short"
-        
-        print(f"✅ max_pages parameter test passed")
+
+        print("✅ max_pages parameter test passed")
 
 
 async def test_pdf_metadata():
@@ -56,35 +56,33 @@ async def test_pdf_metadata():
             "document_analysis",
             {
                 "url": "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
-                "extract_metadata": True
-            }
+                "extract_metadata": True,
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 50, "Metadata extraction output too short"
         # Should mention metadata or document info
-        has_info = "metadata" in output.lower() or "document" in output.lower() or "page" in output.lower()
+        has_info = (
+            "metadata" in output.lower() or "document" in output.lower() or "page" in output.lower()
+        )
         assert has_info, "No document information found"
-        
-        print(f"✅ Metadata extraction test passed")
+
+        print("✅ Metadata extraction test passed")
 
 
 async def test_pdf_error_handling():
     """Test PDF error handling for invalid URLs."""
     async with create_client() as client:
         result = await client.call_tool(
-            "document_analysis",
-            {
-                "url": "https://www.python.org",  # Not a PDF
-                "max_pages": 5
-            }
+            "document_analysis", {"url": "https://www.python.org", "max_pages": 5}  # Not a PDF
         )
-        
+
         output = result.content[0].text
         # Should handle gracefully
         assert len(output) > 50, "Error handling output too short"
-        
-        print(f"✅ Error handling test passed")
+
+        print("✅ Error handling test passed")
 
 
 if __name__ == "__main__":

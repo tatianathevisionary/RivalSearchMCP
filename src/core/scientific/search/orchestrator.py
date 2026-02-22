@@ -4,13 +4,14 @@ Coordinates searching across multiple academic paper providers.
 """
 
 import asyncio
-from typing import List, Dict, Optional, Any
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from src.logging.logger import logger
-from .providers.semantic_scholar import SemanticScholarProvider
+
 from .providers.arxiv import ArXivProvider
 from .providers.pubmed import PubMedProvider
+from .providers.semantic_scholar import SemanticScholarProvider
 
 
 class AcademicSearchOrchestrator:
@@ -24,11 +25,7 @@ class AcademicSearchOrchestrator:
         }
 
     async def search_academic_papers(
-        self,
-        query: str,
-        sources: List[str] = None,
-        limit: int = 20,
-        **kwargs
+        self, query: str, sources: List[str] = None, limit: int = 20, **kwargs
     ) -> List[Dict[str, Any]]:
         """
         Search for academic papers across multiple sources.
@@ -55,7 +52,7 @@ class AcademicSearchOrchestrator:
         search_tasks = []
         for source in valid_sources:
             provider = self.providers[source]
-            search_method = getattr(provider, 'search', None)
+            search_method = getattr(provider, "search", None)
             if search_method:
                 task = search_method(query, limit, **kwargs)
                 search_tasks.append((source, task))
@@ -67,8 +64,7 @@ class AcademicSearchOrchestrator:
         if search_tasks:
             try:
                 search_results = await asyncio.gather(
-                    *[task for _, task in search_tasks],
-                    return_exceptions=True
+                    *[task for _, task in search_tasks], return_exceptions=True
                 )
 
                 for i, (source, _) in enumerate(search_tasks):
@@ -106,11 +102,13 @@ class AcademicSearchOrchestrator:
             key=lambda p: (
                 source_priority.get(p.get("source", ""), len(source_priority)),
                 -int(p.get("citationCount") or 0),  # Higher citations first
-                -int(p.get("year") or 0)  # More recent first
+                -int(p.get("year") or 0),  # More recent first
             )
         )
 
-        logger.info(f"Academic search completed: {len(deduplicated_papers)} unique papers from {len(valid_sources)} sources")
+        logger.info(
+            f"Academic search completed: {len(deduplicated_papers)} unique papers from {len(valid_sources)} sources"
+        )
         return deduplicated_papers[:limit]  # Return only requested limit
 
     async def get_paper_details(self, paper_id: str, source: str) -> Optional[Dict[str, Any]]:
@@ -129,7 +127,7 @@ class AcademicSearchOrchestrator:
             return None
 
         provider = self.providers[source]
-        details_method = getattr(provider, 'get_paper_details', None)
+        details_method = getattr(provider, "get_paper_details", None)
         if details_method:
             try:
                 return await details_method(paper_id)
@@ -141,11 +139,7 @@ class AcademicSearchOrchestrator:
             return None
 
     async def search_combined_academic(
-        self,
-        query: str,
-        sources: List[str] = None,
-        max_results: int = 50,
-        **kwargs
+        self, query: str, sources: List[str] = None, max_results: int = 50, **kwargs
     ) -> Dict[str, Any]:
         """
         Comprehensive academic search with metadata.
@@ -162,10 +156,7 @@ class AcademicSearchOrchestrator:
         start_time = datetime.now()
 
         papers = await self.search_academic_papers(
-            query=query,
-            sources=sources,
-            limit=max_results,
-            **kwargs
+            query=query, sources=sources, limit=max_results, **kwargs
         )
 
         end_time = datetime.now()
@@ -184,16 +175,15 @@ class AcademicSearchOrchestrator:
             "query": query,
             "total_results": len(papers),
             "sources_searched": sources_used,
-            "results_by_source": {source: len(papers) for source, papers in papers_by_source.items()},
+            "results_by_source": {
+                source: len(papers) for source, papers in papers_by_source.items()
+            },
             "search_duration_seconds": duration,
             "timestamp": end_time.isoformat(),
         }
 
         # Sort papers by relevance score (if available) or citation count
-        papers.sort(key=lambda p: (
-            -int(p.get("citationCount") or 0),
-            -int(p.get("year") or 0)
-        ))
+        papers.sort(key=lambda p: (-int(p.get("citationCount") or 0), -int(p.get("year") or 0)))
 
         return {
             "status": "success",

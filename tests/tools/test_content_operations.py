@@ -21,13 +21,13 @@ async def test_retrieve_operation_markdown():
             {
                 "operation": "retrieve",
                 "url": "https://www.python.org",
-                "extraction_method": "markdown"
-            }
+                "extraction_method": "markdown",
+            },
         )
-        
+
         assert result.content, "No content returned"
         output = result.content[0].text
-        
+
         assert len(output) > 100, f"Retrieved content too short: {len(output)} chars"
         print(f"✅ Retrieve (markdown) test passed - {len(output)} chars")
 
@@ -37,16 +37,12 @@ async def test_retrieve_operation_text():
     async with create_client() as client:
         result = await client.call_tool(
             "content_operations",
-            {
-                "operation": "retrieve",
-                "url": "https://www.python.org",
-                "extraction_method": "text"
-            }
+            {"operation": "retrieve", "url": "https://www.python.org", "extraction_method": "text"},
         )
-        
+
         output = result.content[0].text
         assert len(output) > 100, f"Text extraction too short: {len(output)} chars"
-        print(f"✅ Retrieve (text) test passed")
+        print("✅ Retrieve (text) test passed")
 
 
 async def test_retrieve_operation_auto():
@@ -57,16 +53,16 @@ async def test_retrieve_operation_auto():
             {
                 "operation": "retrieve",
                 "url": "https://www.python.org/about",
-                "extraction_method": "auto"
-            }
+                "extraction_method": "auto",
+            },
         )
-        
+
         output = result.content[0].text
         # Some sites may fail - verify tool handles gracefully
         if len(output) < 50:
-            print(f"  ⚠️  Site may have blocked request - tool handles gracefully")
+            print("  ⚠️  Site may have blocked request - tool handles gracefully")
             assert len(output) >= 0, "Should return empty string on failure, not error"
-            print(f"✅ Retrieve (auto) test passed (graceful handling)")
+            print("✅ Retrieve (auto) test passed (graceful handling)")
         else:
             print(f"✅ Retrieve (auto) test passed - {len(output)} chars")
 
@@ -80,14 +76,14 @@ async def test_extract_all_links():
                 "operation": "extract",
                 "url": "https://github.com",
                 "link_type": "all",
-                "max_links": 20
-            }
+                "max_links": 20,
+            },
         )
-        
+
         output = result.content[0].text
         assert "link" in output.lower() or "extract" in output.lower()
         assert len(output) > 200, f"Extract output too minimal: {len(output)} chars"
-        print(f"✅ Extract (all links) test passed")
+        print("✅ Extract (all links) test passed")
 
 
 async def test_extract_internal_links():
@@ -99,14 +95,14 @@ async def test_extract_internal_links():
                 "operation": "extract",
                 "url": "https://www.python.org",
                 "link_type": "internal",
-                "max_links": 10
-            }
+                "max_links": 10,
+            },
         )
-        
+
         output = result.content[0].text
         assert "internal" in output.lower() or "link" in output.lower()
         assert len(output) > 100, "Internal links extraction too minimal"
-        print(f"✅ Extract (internal links) test passed")
+        print("✅ Extract (internal links) test passed")
 
 
 async def test_extract_external_links():
@@ -118,20 +114,20 @@ async def test_extract_external_links():
                 "operation": "extract",
                 "url": "https://www.python.org",
                 "link_type": "external",
-                "max_links": 10
-            }
+                "max_links": 10,
+            },
         )
-        
+
         output = result.content[0].text
         assert "external" in output.lower() or "link" in output.lower()
-        print(f"✅ Extract (external links) test passed")
+        print("✅ Extract (external links) test passed")
 
 
 async def test_analyze_general():
     """Test analyze operation with general analysis type."""
     async with create_client() as client:
         test_content = "This is important content for testing. The key finding is that analysis works well. Critical information is processed correctly."
-        
+
         result = await client.call_tool(
             "content_operations",
             {
@@ -139,20 +135,20 @@ async def test_analyze_general():
                 "content": test_content,
                 "analysis_type": "general",
                 "extract_key_points": True,
-                "summarize": True
-            }
+                "summarize": True,
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 100, f"Analysis output too minimal: {len(output)} chars"
-        print(f"✅ Analyze (general) test passed")
+        print("✅ Analyze (general) test passed")
 
 
 async def test_analyze_sentiment():
     """Test analyze operation with sentiment analysis type."""
     async with create_client() as client:
         test_content = "This is wonderful and amazing content. Everything is great and excellent. Positive outcomes are expected."
-        
+
         result = await client.call_tool(
             "content_operations",
             {
@@ -160,49 +156,45 @@ async def test_analyze_sentiment():
                 "content": test_content,
                 "analysis_type": "sentiment",
                 "extract_key_points": False,
-                "summarize": True
-            }
+                "summarize": True,
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 50, "Sentiment analysis output too minimal"
-        print(f"✅ Analyze (sentiment) test passed")
+        print("✅ Analyze (sentiment) test passed")
 
 
 async def test_analyze_technical():
     """Test analyze operation with technical analysis type."""
     async with create_client() as client:
         test_content = "The API endpoint returns JSON data. HTTP requests use REST architecture. The system processes data at 1000 req/s."
-        
+
         result = await client.call_tool(
             "content_operations",
             {
                 "operation": "analyze",
                 "content": test_content,
                 "analysis_type": "technical",
-                "extract_key_points": True
-            }
+                "extract_key_points": True,
+            },
         )
-        
+
         output = result.content[0].text
         assert len(output) > 50, "Technical analysis output too minimal"
-        print(f"✅ Analyze (technical) test passed")
+        print("✅ Analyze (technical) test passed")
 
 
 async def test_stream_operation():
     """Test stream operation."""
     async with create_client() as client:
         result = await client.call_tool(
-            "content_operations",
-            {
-                "operation": "stream",
-                "url": "https://www.python.org"
-            }
+            "content_operations", {"operation": "stream", "url": "https://www.python.org"}
         )
-        
+
         output = result.content[0].text
         assert len(output) > 50, f"Stream output too short: {len(output)} chars"
-        print(f"✅ Stream operation test passed")
+        print("✅ Stream operation test passed")
 
 
 if __name__ == "__main__":

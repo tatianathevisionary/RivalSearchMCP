@@ -3,17 +3,14 @@ Main FastMCP server for RivalSearchMCP.
 Integrates multi-search engine tools with comprehensive content extraction.
 """
 
-from typing import Any, Dict, Optional
+from fastmcp import Context, FastMCP
 
-from fastmcp import FastMCP
-from fastmcp import Context
-from fastmcp.server.context import Context
-
-# Import tools
-from ..tools.multi_search import web_search
+from src.tools.multi_search import web_search as multi_search
 
 # Import logger
 from ..logging.logger import logger
+
+# Import tools
 
 # Server configuration
 SERVER_NAME = "RivalSearchMCP"
@@ -88,7 +85,7 @@ async def multi_search_tool(
             ctx=ctx,
         )
 
-        await ctx.info(f"✅ Multi-engine search completed successfully!")
+        await ctx.info("✅ Multi-engine search completed successfully!")
 
         return results
 
@@ -118,7 +115,6 @@ async def shutdown_event():
 app = mcp
 
 if __name__ == "__main__":
-    import uvicorn
 
     print(f"🚀 Starting {SERVER_NAME} v{SERVER_VERSION}")
     print(f"📖 Description: {SERVER_DESCRIPTION}")

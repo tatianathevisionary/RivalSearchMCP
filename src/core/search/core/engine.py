@@ -15,22 +15,17 @@ from bs4 import BeautifulSoup, Tag
 from src.logging.logger import logger
 from src.utils import get_enhanced_ua_list, get_http_client
 
-
 # Additional search engine configurations
 ADDITIONAL_ENGINES = {
     "duckduckgo": {
         "url": "https://html.duckduckgo.com/html/",
         "params": {"q": "{query}"},
-        "headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        },
+        "headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
     },
     "yahoo": {
         "url": "https://search.yahoo.com/search",
         "params": {"p": "{query}", "n": "{num}"},
-        "headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        },
+        "headers": {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
     },
 }
 
@@ -77,9 +72,7 @@ class MultiEngineSearch:
             # Search all engines concurrently
             tasks = []
             for engine in available_engines:
-                task = asyncio.create_task(
-                    self.search_single_engine(engine, query, num_results)
-                )
+                task = asyncio.create_task(self.search_single_engine(engine, query, num_results))
                 tasks.append(task)
 
             # Wait for all searches to complete
@@ -107,19 +100,14 @@ class MultiEngineSearch:
 
         # Prepare request
         params = config["params"].copy()
-        params = {
-            k: v.format(query=quote_plus(query), num=num_results)
-            for k, v in params.items()
-        }
+        params = {k: v.format(query=quote_plus(query), num=num_results) for k, v in params.items()}
 
         headers = config["headers"].copy()
         headers["User-Agent"] = self._get_random_ua()
 
         try:
             client = await get_http_client()
-            response = await client.get(
-                config["url"], params=params, headers=headers, timeout=30.0
-            )
+            response = await client.get(config["url"], params=params, headers=headers, timeout=30.0)
             response.raise_for_status()
 
             # Parse results based on engine
@@ -140,9 +128,7 @@ class MultiEngineSearch:
 
         return random.choice(self.user_agents)
 
-    def _parse_duckduckgo_results(
-        self, html: str, num_results: int
-    ) -> List[Dict[str, Any]]:
+    def _parse_duckduckgo_results(self, html: str, num_results: int) -> List[Dict[str, Any]]:
         """Parse DuckDuckGo search results."""
         results = []
         try:
@@ -166,11 +152,7 @@ class MultiEngineSearch:
                         result = {
                             "title": title_tag.get_text(strip=True),
                             "url": title_tag.get("href", ""),
-                            "snippet": (
-                                snippet_elem.get_text(strip=True)
-                                if snippet_elem
-                                else ""
-                            ),
+                            "snippet": (snippet_elem.get_text(strip=True) if snippet_elem else ""),
                             "position": i + 1,
                             "engine": "duckduckgo",
                         }
@@ -215,9 +197,7 @@ class MultiEngineSearch:
                         result = {
                             "title": title_tag.get_text(strip=True),
                             "url": link_tag.get("href", ""),
-                            "snippet": (
-                                snippet_tag.get_text(strip=True) if snippet_tag else ""
-                            ),
+                            "snippet": (snippet_tag.get_text(strip=True) if snippet_tag else ""),
                             "position": i + 1,
                             "engine": "yahoo",
                         }
@@ -231,9 +211,7 @@ class MultiEngineSearch:
 
         return results
 
-    def _parse_generic_results(
-        self, html: str, num_results: int
-    ) -> List[Dict[str, Any]]:
+    def _parse_generic_results(self, html: str, num_results: int) -> List[Dict[str, Any]]:
         """Parse generic search results."""
         results = []
         try:
@@ -286,9 +264,7 @@ class MultiEngineSearch:
         # Sort results by engine priority: DuckDuckGo first, then Yahoo
         engine_priority = {"duckduckgo": 0, "yahoo": 1}
 
-        for engine in sorted(
-            self.results.keys(), key=lambda x: engine_priority.get(x, 999)
-        ):
+        for engine in sorted(self.results.keys(), key=lambda x: engine_priority.get(x, 999)):
             results = self.results[engine]
             for result in results:
                 url = result.get("url", "").lower().rstrip("/")
@@ -301,9 +277,7 @@ class MultiEngineSearch:
                     all_results.append(result_copy)
 
                     # Limit to prevent too many results
-                    if (
-                        len(all_results) >= num_results * 2
-                    ):  # Allow some buffer for quality
+                    if len(all_results) >= num_results * 2:  # Allow some buffer for quality
                         break
 
         # Sort by position within each engine, then take top results

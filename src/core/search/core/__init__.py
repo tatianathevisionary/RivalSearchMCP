@@ -2,11 +2,7 @@
 Core search functionality package.
 """
 
-from .multi_engines import BaseSearchEngine, MultiSearchResult
 from .engine import MultiEngineSearch
+from .multi_engines import BaseSearchEngine, MultiSearchResult
 
-__all__ = [
-    'BaseSearchEngine',
-    'MultiSearchResult',
-    'MultiEngineSearch'
-]
+__all__ = ["BaseSearchEngine", "MultiSearchResult", "MultiEngineSearch"]

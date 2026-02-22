@@ -4,18 +4,18 @@ Supports Redis and file-based caching with TTL, compression, and performance met
 """
 
 import asyncio
+import gzip
 import hashlib
 import json
-import logging
 import os
 import pickle
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
-import gzip
+from typing import Any, Dict, Optional
 
 try:
     import redis.asyncio as redis
+
     REDIS_AVAILABLE = True
 except ImportError:
     redis = None
@@ -143,7 +143,7 @@ class RedisCacheBackend(BaseCacheBackend):
                 self.redis_client = redis.Redis.from_url(
                     self.config.redis_url,
                     db=self.config.redis_db,
-                    decode_responses=False  # We'll handle serialization
+                    decode_responses=False,  # We'll handle serialization
                 )
                 await self.redis_client.ping()
                 self._connected = True
@@ -171,7 +171,7 @@ class RedisCacheBackend(BaseCacheBackend):
             if self.config.compression:
                 data = gzip.decompress(data)
 
-            entry_dict = json.loads(data.decode('utf-8'))
+            entry_dict = json.loads(data.decode("utf-8"))
             entry = CacheEntry.from_dict(entry_dict)
 
             if entry.is_expired():
@@ -198,7 +198,7 @@ class RedisCacheBackend(BaseCacheBackend):
             entry_dict = entry.to_dict()
 
             # Serialize
-            data = json.dumps(entry_dict).encode('utf-8')
+            data = json.dumps(entry_dict).encode("utf-8")
             if self.config.compression:
                 data = gzip.compress(data)
 
@@ -283,13 +283,13 @@ class FileCacheBackend(BaseCacheBackend):
                 return None
 
             # Read and deserialize
-            with open(cache_path, 'rb') as f:
+            with open(cache_path, "rb") as f:
                 if self.config.compression:
                     data = gzip.decompress(f.read())
                 else:
                     data = f.read()
 
-            entry_dict = json.loads(data.decode('utf-8'))
+            entry_dict = json.loads(data.decode("utf-8"))
             entry = CacheEntry.from_dict(entry_dict)
 
             if entry.is_expired():
@@ -317,7 +317,7 @@ class FileCacheBackend(BaseCacheBackend):
             entry_dict = entry.to_dict()
 
             # Serialize
-            data = json.dumps(entry_dict).encode('utf-8')
+            data = json.dumps(entry_dict).encode("utf-8")
             if self.config.compression:
                 data = gzip.compress(data)
 
@@ -326,7 +326,7 @@ class FileCacheBackend(BaseCacheBackend):
                 logger.warning(f"Cache entry too large for key {key}, skipping")
                 return False
 
-            with open(cache_path, 'wb') as f:
+            with open(cache_path, "wb") as f:
                 f.write(data)
 
             self._stats["sets"] += 1
@@ -377,7 +377,8 @@ class FileCacheBackend(BaseCacheBackend):
                 "misses": self._stats["misses"],
                 "sets": self._stats["sets"],
                 "deletes": self._stats["deletes"],
-                "hit_rate": self._stats["hits"] / max(self._stats["hits"] + self._stats["misses"], 1),
+                "hit_rate": self._stats["hits"]
+                / max(self._stats["hits"] + self._stats["misses"], 1),
             }
         except Exception as e:
             return {"status": "error", "error": str(e)}
@@ -388,13 +389,13 @@ class FileCacheBackend(BaseCacheBackend):
         try:
             for cache_file in self.cache_dir.glob("*.cache"):
                 try:
-                    with open(cache_file, 'rb') as f:
+                    with open(cache_file, "rb") as f:
                         if self.config.compression:
                             data = gzip.decompress(f.read())
                         else:
                             data = f.read()
 
-                    entry_dict = json.loads(data.decode('utf-8'))
+                    entry_dict = json.loads(data.decode("utf-8"))
                     entry = CacheEntry.from_dict(entry_dict)
 
                     if entry.is_expired():
@@ -481,12 +482,14 @@ class CacheManager:
     async def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics."""
         stats = await self.backend.get_stats()
-        stats.update({
-            "enabled": self.config.enabled,
-            "backend": self.config.backend,
-            "default_ttl": self.config.ttl_seconds,
-            "compression": self.config.compression,
-        })
+        stats.update(
+            {
+                "enabled": self.config.enabled,
+                "backend": self.config.backend,
+                "default_ttl": self.config.ttl_seconds,
+                "compression": self.config.compression,
+            }
+        )
         return stats
 
     def _make_key(self, key: str) -> str:

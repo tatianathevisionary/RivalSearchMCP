@@ -3,7 +3,7 @@ Performance monitoring interface.
 Provides simplified access to performance monitoring capabilities.
 """
 
-from .performance import performance_monitor, monitor_performance
+from .performance import monitor_performance, performance_monitor
 
 
 class PerformanceMonitor:

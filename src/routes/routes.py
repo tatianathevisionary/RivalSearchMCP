@@ -4,12 +4,10 @@ Provides health checks, metrics, and monitoring endpoints.
 """
 
 import os
-import json
 from datetime import datetime
-from typing import Dict, Any
 
 from starlette.requests import Request
-from starlette.responses import PlainTextResponse, JSONResponse
+from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.status import HTTP_200_OK, HTTP_500_INTERNAL_SERVER_ERROR
 
 from src.logging.logger import logger
@@ -44,9 +42,7 @@ def register_custom_routes(mcp):
 
         except Exception as e:
             logger.error(f"Health check failed: {e}")
-            return PlainTextResponse(
-                content="ERROR", status_code=HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return PlainTextResponse(content="ERROR", status_code=HTTP_500_INTERNAL_SERVER_ERROR)
 
     @mcp.custom_route("/metrics", methods=["GET"])
     async def metrics_endpoint(request: Request) -> JSONResponse:

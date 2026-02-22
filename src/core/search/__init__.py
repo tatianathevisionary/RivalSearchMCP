@@ -5,7 +5,7 @@ Provides multi-engine search capabilities with content extraction.
 """
 
 # Core search functionality
-from .core import BaseSearchEngine, MultiSearchResult, MultiEngineSearch
+from .core import BaseSearchEngine, MultiEngineSearch, MultiSearchResult
 
 # Search engines
 from .engines import DuckDuckGoSearchEngine, YahooSearchEngine

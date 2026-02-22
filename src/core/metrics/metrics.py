@@ -3,13 +3,13 @@ Metrics collection and monitoring for RivalSearchMCP.
 Provides comprehensive metrics collection and Prometheus-style metrics.
 """
 
-import time
-import psutil
 import asyncio
-from typing import Dict, Any, List, Optional
+import time
 from collections import defaultdict, deque
-from datetime import datetime, timedelta
-import threading
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import psutil
 
 from src.logging.logger import logger
 from src.performance.performance import performance_monitor
@@ -69,7 +69,7 @@ class MetricsCollector:
             memory = psutil.virtual_memory()
 
             # Disk metrics
-            disk = psutil.disk_usage('/')
+            disk = psutil.disk_usage("/")
 
             # Network metrics (basic)
             net_io = psutil.net_io_counters()
@@ -110,7 +110,7 @@ class MetricsCollector:
                     "memory_mb": process_memory.rss / (1024**2),
                     "cpu_percent": process_cpu,
                     "threads": process.num_threads(),
-                }
+                },
             }
 
             # Store in history
@@ -121,7 +121,9 @@ class MetricsCollector:
         except Exception as e:
             logger.error(f"System metrics collection failed: {e}")
 
-    def record_counter(self, name: str, value: float = 1.0, labels: Optional[Dict[str, str]] = None):
+    def record_counter(
+        self, name: str, value: float = 1.0, labels: Optional[Dict[str, str]] = None
+    ):
         """Record a counter metric."""
         key = self._make_metric_key(name, labels)
         self.custom_metrics["counter"][key] += value
@@ -158,6 +160,7 @@ class MetricsCollector:
         cache_stats = {}
         try:
             from src.core.cache.cache_manager import get_cache_manager
+
             cache_manager = get_cache_manager()
             cache_stats = asyncio.run(cache_manager.get_stats())
         except Exception:
@@ -167,6 +170,7 @@ class MetricsCollector:
         security_stats = {}
         try:
             from src.core.security.security import get_security_middleware
+
             security = get_security_middleware()
             security_stats = asyncio.run(security.get_security_stats())
         except Exception:
@@ -202,21 +206,25 @@ class MetricsCollector:
 
         # CPU metrics
         cpu = self.system_metrics.get("cpu", {})
-        lines.append(f'# HELP rival_search_cpu_percent Current CPU usage percentage')
-        lines.append(f'# TYPE rival_search_cpu_percent gauge')
+        lines.append("# HELP rival_search_cpu_percent Current CPU usage percentage")
+        lines.append("# TYPE rival_search_cpu_percent gauge")
         lines.append(f'rival_search_cpu_percent {cpu.get("percent", 0)} {int(timestamp * 1000)}')
 
         # Memory metrics
         memory = self.system_metrics.get("memory", {})
-        lines.append(f'# HELP rival_search_memory_used_gb Memory used in GB')
-        lines.append(f'# TYPE rival_search_memory_used_gb gauge')
-        lines.append(f'rival_search_memory_used_gb {memory.get("used_gb", 0)} {int(timestamp * 1000)}')
+        lines.append("# HELP rival_search_memory_used_gb Memory used in GB")
+        lines.append("# TYPE rival_search_memory_used_gb gauge")
+        lines.append(
+            f'rival_search_memory_used_gb {memory.get("used_gb", 0)} {int(timestamp * 1000)}'
+        )
 
         # Process metrics
         process = self.system_metrics.get("process", {})
-        lines.append(f'# HELP rival_search_process_memory_mb Process memory usage in MB')
-        lines.append(f'# TYPE rival_search_process_memory_mb gauge')
-        lines.append(f'rival_search_process_memory_mb {process.get("memory_mb", 0)} {int(timestamp * 1000)}')
+        lines.append("# HELP rival_search_process_memory_mb Process memory usage in MB")
+        lines.append("# TYPE rival_search_process_memory_mb gauge")
+        lines.append(
+            f'rival_search_process_memory_mb {process.get("memory_mb", 0)} {int(timestamp * 1000)}'
+        )
 
         return lines
 
@@ -227,24 +235,24 @@ class MetricsCollector:
 
         # Counters
         for metric_key, value in self.custom_metrics["counter"].items():
-            lines.append(f'# HELP {metric_key} Custom counter metric')
-            lines.append(f'# TYPE {metric_key} counter')
-            lines.append(f'{metric_key} {value} {timestamp}')
+            lines.append(f"# HELP {metric_key} Custom counter metric")
+            lines.append(f"# TYPE {metric_key} counter")
+            lines.append(f"{metric_key} {value} {timestamp}")
 
         # Gauges
         for metric_key, value in self.custom_metrics["gauge"].items():
-            lines.append(f'# HELP {metric_key} Custom gauge metric')
-            lines.append(f'# TYPE {metric_key} gauge')
-            lines.append(f'{metric_key} {value} {timestamp}')
+            lines.append(f"# HELP {metric_key} Custom gauge metric")
+            lines.append(f"# TYPE {metric_key} gauge")
+            lines.append(f"{metric_key} {value} {timestamp}")
 
         # Histograms (simplified)
         for metric_key, values in self.custom_metrics["histogram"].items():
             if values:
-                lines.append(f'# HELP {metric_key} Custom histogram metric')
-                lines.append(f'# TYPE {metric_key}_count counter')
-                lines.append(f'{metric_key}_count {len(values)} {timestamp}')
-                lines.append(f'# TYPE {metric_key}_sum counter')
-                lines.append(f'{metric_key}_sum {sum(values)} {timestamp}')
+                lines.append(f"# HELP {metric_key} Custom histogram metric")
+                lines.append(f"# TYPE {metric_key}_count counter")
+                lines.append(f"{metric_key}_count {len(values)} {timestamp}")
+                lines.append(f"# TYPE {metric_key}_sum counter")
+                lines.append(f"{metric_key}_sum {sum(values)} {timestamp}")
 
         return lines
 
@@ -274,16 +282,12 @@ class MetricsCollector:
                 issues.append(f"Low success rate: {success_rate:.2%}")
 
         if issues:
-            return {
-                "status": "degraded",
-                "message": "System experiencing issues",
-                "issues": issues
-            }
+            return {"status": "degraded", "message": "System experiencing issues", "issues": issues}
 
         return {
             "status": "healthy",
             "message": "All systems operational",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
 
@@ -314,18 +318,25 @@ async def stop_metrics_collection():
 def record_request_metrics(method: str, duration_ms: float, success: bool):
     """Record metrics for an API request."""
     collector = get_metrics_collector()
-    collector.record_counter("requests_total", labels={"method": method, "status": "success" if success else "error"})
+    collector.record_counter(
+        "requests_total", labels={"method": method, "status": "success" if success else "error"}
+    )
     collector.record_histogram("request_duration_ms", duration_ms, labels={"method": method})
 
 
 def record_tool_usage(tool_name: str, duration_ms: float, success: bool):
     """Record metrics for tool usage."""
     collector = get_metrics_collector()
-    collector.record_counter("tool_usage_total", labels={"tool": tool_name, "status": "success" if success else "error"})
+    collector.record_counter(
+        "tool_usage_total", labels={"tool": tool_name, "status": "success" if success else "error"}
+    )
     collector.record_histogram("tool_duration_ms", duration_ms, labels={"tool": tool_name})
 
 
 def record_cache_metrics(operation: str, hit: bool):
     """Record cache operation metrics."""
     collector = get_metrics_collector()
-    collector.record_counter("cache_operations_total", labels={"operation": operation, "result": "hit" if hit else "miss"})
+    collector.record_counter(
+        "cache_operations_total",
+        labels={"operation": operation, "result": "hit" if hit else "miss"},
+    )

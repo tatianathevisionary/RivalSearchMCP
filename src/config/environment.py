@@ -5,6 +5,7 @@ Environment-based configurations for RivalSearchMCP.
 
 import os
 
+
 def get_environment_config():
     """Get environment-based configuration."""
     return {
