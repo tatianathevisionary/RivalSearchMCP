@@ -148,6 +148,44 @@ uv sync
 - `scientific_research` — Academic paper search and dataset discovery across arXiv, Semantic Scholar (NO AUTH)
 - `research_agent` — AI research agent with autonomous tool calling using OpenRouter (7 tools available)
 
+## Agent Skills
+
+RivalSearchMCP ships with a **Claude Code Agent Skill** — a self-contained CLI that lets AI agents use all 10 tools without MCP configuration.
+
+### Use as a Claude Code Skill
+
+Copy the skill into your Claude Code skills directory:
+```bash
+# Project-level (available when working in this repo)
+cp -r skills/rival-search-mcp .claude/skills/
+
+# Global (available in all projects)
+cp -r skills/rival-search-mcp ~/.claude/skills/
+```
+
+Claude will automatically discover the skill and use the CLI when you ask for web research, competitor analysis, or content discovery.
+
+### Use the CLI directly
+
+The CLI is self-contained with inline dependencies — just run with `uv`:
+```bash
+uv run skills/rival-search-mcp/cli.py call-tool web_search --query "your query"
+uv run skills/rival-search-mcp/cli.py call-tool social_search --query "AI agents" --platforms reddit
+uv run skills/rival-search-mcp/cli.py call-tool news_aggregation --query "tech news" --time-range week
+uv run skills/rival-search-mcp/cli.py list-tools
+```
+
+### Skill structure
+```
+skills/rival-search-mcp/
+├── SKILL.md              # Agent instructions (auto-loaded by Claude Code)
+├── cli.py                # Standalone CLI with all 10 tools
+└── resources/
+    ├── search.md         # web_search, social_search, news, github, map_website
+    ├── content.md        # content_operations, document_analysis
+    └── research.md       # research_topic, scientific_research, research_agent
+```
+
 ## ⚡ Key Features
 
 - **Multi-Engine Search**: 3 search engines (DuckDuckGo, Yahoo, Wikipedia) with automatic fallbacks

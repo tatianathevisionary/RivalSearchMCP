@@ -6,7 +6,7 @@ This file provides guidance to AI coding agents (GitHub Copilot, Cursor, Aider, 
 
 ## Project Overview
 
-RivalSearchMCP is an MCP server providing 8 specialized tools for web research, content discovery, and trends analysis. Built on FastMCP, it offers multi-engine search (Yahoo/DuckDuckGo), Google Trends analysis, website traversal, scientific research, and AI-enhanced research workflows.
+RivalSearchMCP is an MCP server providing 10 specialized tools for web research, content discovery, and analysis. Built on FastMCP, it offers multi-engine search (Yahoo/DuckDuckGo), website traversal, scientific research, and AI-enhanced research workflows. Ships with Claude Code Agent Skills for standalone CLI usage.
 
 - **100% free**: No API keys required for core functionality
 - **Dual deployment**: Hosted service at `https://RivalSearchMCP.fastmcp.app/mcp` or local development
@@ -96,7 +96,7 @@ RivalSearchMCP uses a **modular tool-based architecture** where each tool catego
 
 ```
 src/
-├── tools/          # MCP tool implementations (8 tools)
+├── tools/          # MCP tool implementations (10 tools)
 │   ├── analysis.py       # content_operations tool
 │   ├── multi_search.py   # multi_search tool
 │   ├── research.py       # research_topic tool
@@ -238,7 +238,29 @@ All environment variables are optional - the system works without any configurat
    - Use pytest-asyncio for async tools
    - Aim for 80%+ coverage
 
-6. **Update README** - Increment tool count if adding new tool (currently 8 total)
+6. **Update README** - Increment tool count if adding new tool (currently 10 total)
+
+7. **Update Agent Skill** - If the new tool should be exposed via the CLI, regenerate:
+   ```bash
+   fastmcp generate-cli https://RivalSearchMCP.fastmcp.app/mcp skills/rival-search-mcp/cli.py -f
+   ```
+   Then update `skills/rival-search-mcp/SKILL.md` and the relevant resource file in `skills/rival-search-mcp/resources/`.
+
+## Agent Skills
+
+RivalSearchMCP ships with a Claude Code Agent Skill in `skills/rival-search-mcp/`. This packages all 10 tools as a standalone CLI that agents can invoke directly.
+
+```
+skills/rival-search-mcp/
+├── SKILL.md              # Agent instructions
+├── cli.py                # Self-contained CLI (PEP 723 inline deps)
+└── resources/
+    ├── search.md         # web_search, social_search, news_aggregation, github_search, map_website
+    ├── content.md        # content_operations, document_analysis
+    └── research.md       # research_topic, scientific_research, research_agent
+```
+
+The CLI connects to the live server at `https://RivalSearchMCP.fastmcp.app/mcp` and runs with `uv run cli.py`. Users can copy `skills/rival-search-mcp/` to `~/.claude/skills/` for global use in Claude Code.
 
 ## Code Style Standards
 
