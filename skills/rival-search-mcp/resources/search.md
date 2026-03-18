@@ -5,7 +5,7 @@
 Search across Yahoo and DuckDuckGo engines with automatic fallback support.
 
 ```bash
-uv run --with fastmcp python cli.py call-tool web_search --query <value> --num-results <value> --extract-content --follow-links --max-depth <value> --use-fallback
+uv run --with fastmcp python scripts/cli.py call-tool web_search --query <value> --num-results <value> --extract-content --follow-links --max-depth <value> --use-fallback
 ```
 
 | Flag | Type | Required | Default | Description |
@@ -19,7 +19,7 @@ uv run --with fastmcp python cli.py call-tool web_search --query <value> --num-r
 
 **Example:**
 ```bash
-python cli.py call-tool web_search --query "best MCP servers 2026" --num-results 5
+python scripts/cli.py call-tool web_search --query "best MCP servers 2026" --num-results 5
 ```
 
 ---
@@ -29,7 +29,7 @@ python cli.py call-tool web_search --query "best MCP servers 2026" --num-results
 Search Reddit, Hacker News, Dev.to, Product Hunt, and Medium without authentication.
 
 ```bash
-uv run --with fastmcp python cli.py call-tool social_search --query <value> --platforms <value> --max-results-per-platform <value> --reddit-subreddit <value> --time-filter <value>
+uv run --with fastmcp python scripts/cli.py call-tool social_search --query <value> --platforms <value> --max-results-per-platform <value> --reddit-subreddit <value> --time-filter <value>
 ```
 
 | Flag | Type | Required | Default | Description |
@@ -45,7 +45,7 @@ uv run --with fastmcp python cli.py call-tool social_search --query <value> --pl
 
 **Example:**
 ```bash
-python cli.py call-tool social_search --query "AI agents" --platforms reddit --platforms hackernews --time-filter week
+python scripts/cli.py call-tool social_search --query "AI agents" --platforms reddit --platforms hackernews --time-filter week
 ```
 
 ---
@@ -55,7 +55,7 @@ python cli.py call-tool social_search --query "AI agents" --platforms reddit --p
 Aggregate news from Google News RSS feed without authentication.
 
 ```bash
-uv run --with fastmcp python cli.py call-tool news_aggregation --query <value> --max-results <value> --language <value> --country <value> --time-range <value>
+uv run --with fastmcp python scripts/cli.py call-tool news_aggregation --query <value> --max-results <value> --language <value> --country <value> --time-range <value>
 ```
 
 | Flag | Type | Required | Default | Description |
@@ -68,7 +68,7 @@ uv run --with fastmcp python cli.py call-tool news_aggregation --query <value> -
 
 **Example:**
 ```bash
-python cli.py call-tool news_aggregation --query "artificial intelligence startups" --time-range week --max-results 20
+python scripts/cli.py call-tool news_aggregation --query "artificial intelligence startups" --time-range week --max-results 20
 ```
 
 ---
@@ -78,7 +78,7 @@ python cli.py call-tool news_aggregation --query "artificial intelligence startu
 Search public GitHub repositories using the public API. No authentication required. Rate limited to 60 requests/hour.
 
 ```bash
-uv run --with fastmcp python cli.py call-tool github_search --query <value> --language <value> --sort <value> --max-results <value> --include-readme
+uv run --with fastmcp python scripts/cli.py call-tool github_search --query <value> --language <value> --sort <value> --max-results <value> --include-readme
 ```
 
 | Flag | Type | Required | Default | Description |
@@ -91,7 +91,7 @@ uv run --with fastmcp python cli.py call-tool github_search --query <value> --la
 
 **Example:**
 ```bash
-python cli.py call-tool github_search --query "MCP server" --language Python --sort stars --include-readme
+python scripts/cli.py call-tool github_search --query "MCP server" --language Python --sort stars --include-readme
 ```
 
 ---
@@ -101,7 +101,7 @@ python cli.py call-tool github_search --query "MCP server" --language Python --s
 Map and explore websites with different traversal modes.
 
 ```bash
-uv run --with fastmcp python cli.py call-tool map_website --url <value> --mode <value> --max-pages <value> --max-depth <value> --generate-llms-txt
+uv run --with fastmcp python scripts/cli.py call-tool map_website --url <value> --mode <value> --max-pages <value> --max-depth <value> --generate-llms-txt
 ```
 
 | Flag | Type | Required | Default | Description |
@@ -114,5 +114,5 @@ uv run --with fastmcp python cli.py call-tool map_website --url <value> --mode <
 
 **Example:**
 ```bash
-python cli.py call-tool map_website --url "https://docs.example.com" --mode docs --max-pages 20
+python scripts/cli.py call-tool map_website --url "https://docs.example.com" --mode docs --max-pages 20
 ```

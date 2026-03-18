@@ -5,7 +5,7 @@
 Consolidated content operations: retrieve, stream, analyze, and extract from URLs.
 
 ```bash
-uv run --with fastmcp python cli.py call-tool content_operations --operation <value> --url <value> --content <value> --extraction-method <value> --analysis-type <value>
+uv run --with fastmcp python scripts/cli.py call-tool content_operations --operation <value> --url <value> --content <value> --extraction-method <value> --analysis-type <value>
 ```
 
 | Flag | Type | Required | Default | Description |
@@ -25,22 +25,22 @@ uv run --with fastmcp python cli.py call-tool content_operations --operation <va
 
 **retrieve** — Fetch and extract content from a URL:
 ```bash
-python cli.py call-tool content_operations --operation retrieve --url "https://example.com/article" --extraction-method markdown
+python scripts/cli.py call-tool content_operations --operation retrieve --url "https://example.com/article" --extraction-method markdown
 ```
 
 **analyze** — Analyze content with sentiment/technical/business analysis:
 ```bash
-python cli.py call-tool content_operations --operation analyze --content "Your text here" --analysis-type sentiment --extract-key-points
+python scripts/cli.py call-tool content_operations --operation analyze --content "Your text here" --analysis-type sentiment --extract-key-points
 ```
 
 **extract** — Extract links and resources from a page:
 ```bash
-python cli.py call-tool content_operations --operation extract --url "https://example.com" --link-type external --max-links 50
+python scripts/cli.py call-tool content_operations --operation extract --url "https://example.com" --link-type external --max-links 50
 ```
 
 **stream** — Stream content from a URL:
 ```bash
-python cli.py call-tool content_operations --operation stream --url "https://example.com/large-page"
+python scripts/cli.py call-tool content_operations --operation stream --url "https://example.com/large-page"
 ```
 
 ---
@@ -50,7 +50,7 @@ python cli.py call-tool content_operations --operation stream --url "https://exa
 Download and analyze documents with OCR support. Supports PDF, Word (.docx), Text (.txt, .md), and Images (.jpg, .png). No authentication required. OCR auto-downloads models on first use (~100MB).
 
 ```bash
-uv run --with fastmcp python cli.py call-tool document_analysis --url <value> --max-pages <value> --extract-metadata --summary-length <value>
+uv run --with fastmcp python scripts/cli.py call-tool document_analysis --url <value> --max-pages <value> --extract-metadata --summary-length <value>
 ```
 
 | Flag | Type | Required | Default | Description |
@@ -64,15 +64,15 @@ uv run --with fastmcp python cli.py call-tool document_analysis --url <value> --
 
 Extract text from a PDF:
 ```bash
-python cli.py call-tool document_analysis --url "https://arxiv.org/pdf/2301.00001" --max-pages 5
+python scripts/cli.py call-tool document_analysis --url "https://arxiv.org/pdf/2301.00001" --max-pages 5
 ```
 
 OCR an image:
 ```bash
-python cli.py call-tool document_analysis --url "https://example.com/screenshot.png"
+python scripts/cli.py call-tool document_analysis --url "https://example.com/screenshot.png"
 ```
 
 Analyze a Word document:
 ```bash
-python cli.py call-tool document_analysis --url "https://example.com/report.docx" --extract-metadata --summary-length 1000
+python scripts/cli.py call-tool document_analysis --url "https://example.com/report.docx" --extract-metadata --summary-length 1000
 ```

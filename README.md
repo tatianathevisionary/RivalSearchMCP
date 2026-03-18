@@ -169,17 +169,18 @@ Claude will automatically discover the skill and use the CLI when you ask for we
 
 The CLI is self-contained with inline dependencies — just run with `uv`:
 ```bash
-uv run skills/rival-search-mcp/cli.py call-tool web_search --query "your query"
-uv run skills/rival-search-mcp/cli.py call-tool social_search --query "AI agents" --platforms reddit
-uv run skills/rival-search-mcp/cli.py call-tool news_aggregation --query "tech news" --time-range week
-uv run skills/rival-search-mcp/cli.py list-tools
+uv run skills/rival-search-mcp/scripts/cli.py call-tool web_search --query "your query"
+uv run skills/rival-search-mcp/scripts/cli.py call-tool social_search --query "AI agents" --platforms reddit
+uv run skills/rival-search-mcp/scripts/cli.py call-tool news_aggregation --query "tech news" --time-range week
+uv run skills/rival-search-mcp/scripts/cli.py list-tools
 ```
 
 ### Skill structure
 ```
 skills/rival-search-mcp/
 ├── SKILL.md              # Agent instructions (auto-loaded by Claude Code)
-├── cli.py                # Standalone CLI with all 10 tools
+├── scripts/
+│   └── cli.py            # Standalone CLI with all 10 tools
 └── resources/
     ├── search.md         # web_search, social_search, news, github, map_website
     ├── content.md        # content_operations, document_analysis

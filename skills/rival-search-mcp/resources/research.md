@@ -5,7 +5,7 @@
 End-to-end research workflow for a topic. Combines search, content retrieval, and analysis into a single operation.
 
 ```bash
-uv run --with fastmcp python cli.py call-tool research_topic --topic <value> --sources <value> --max-sources <value> --include-analysis
+uv run --with fastmcp python scripts/cli.py call-tool research_topic --topic <value> --sources <value> --max-sources <value> --include-analysis
 ```
 
 | Flag | Type | Required | Default | Description |
@@ -17,7 +17,7 @@ uv run --with fastmcp python cli.py call-tool research_topic --topic <value> --s
 
 **Example:**
 ```bash
-python cli.py call-tool research_topic --topic "LLM agent frameworks comparison" --max-sources 10
+python scripts/cli.py call-tool research_topic --topic "LLM agent frameworks comparison" --max-sources 10
 ```
 
 ---
@@ -27,7 +27,7 @@ python cli.py call-tool research_topic --topic "LLM agent frameworks comparison"
 Academic paper and dataset discovery across multiple sources. No authentication required.
 
 ```bash
-uv run --with fastmcp python cli.py call-tool scientific_research --operation <value> --query <value> --max-results <value> --sources <value> --categories <value>
+uv run --with fastmcp python scripts/cli.py call-tool scientific_research --operation <value> --query <value> --max-results <value> --sources <value> --categories <value>
 ```
 
 | Flag | Type | Required | Default | Description |
@@ -42,12 +42,12 @@ uv run --with fastmcp python cli.py call-tool scientific_research --operation <v
 
 **academic_search** — Search papers across Semantic Scholar, arXiv, PubMed:
 ```bash
-python cli.py call-tool scientific_research --operation academic_search --query "transformer attention mechanisms" --sources '["arxiv", "semantic_scholar"]'
+python scripts/cli.py call-tool scientific_research --operation academic_search --query "transformer attention mechanisms" --sources '["arxiv", "semantic_scholar"]'
 ```
 
 **dataset_discovery** — Find datasets on Kaggle, HuggingFace:
 ```bash
-python cli.py call-tool scientific_research --operation dataset_discovery --query "sentiment analysis" --sources '["huggingface", "kaggle"]'
+python scripts/cli.py call-tool scientific_research --operation dataset_discovery --query "sentiment analysis" --sources '["huggingface", "kaggle"]'
 ```
 
 ---
@@ -57,7 +57,7 @@ python cli.py call-tool scientific_research --operation dataset_discovery --quer
 AI research agent using OpenRouter with autonomous tool calling. Orchestrates multiple tools to generate comprehensive reports. Requires `OPENROUTER_API_KEY` environment variable.
 
 ```bash
-uv run --with fastmcp python cli.py call-tool research_agent --topic <value> --max-sources <value> --research-depth <value> --ai-model <value>
+uv run --with fastmcp python scripts/cli.py call-tool research_agent --topic <value> --max-sources <value> --research-depth <value> --ai-model <value>
 ```
 
 | Flag | Type | Required | Default | Description |
@@ -72,7 +72,7 @@ uv run --with fastmcp python cli.py call-tool research_agent --topic <value> --m
 
 **Example:**
 ```bash
-python cli.py call-tool research_agent --topic "competitive analysis of MCP servers" --research-depth comprehensive --max-sources 20
+python scripts/cli.py call-tool research_agent --topic "competitive analysis of MCP servers" --research-depth comprehensive --max-sources 20
 ```
 
 **Note:** This is the only tool that requires an API key. Set `OPENROUTER_API_KEY` in your environment. Without it, the tool gracefully degrades.

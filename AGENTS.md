@@ -253,14 +253,15 @@ RivalSearchMCP ships with a Claude Code Agent Skill in `skills/rival-search-mcp/
 ```
 skills/rival-search-mcp/
 ├── SKILL.md              # Agent instructions
-├── cli.py                # Self-contained CLI (PEP 723 inline deps)
+├── scripts/
+│   └── cli.py            # Self-contained CLI (PEP 723 inline deps)
 └── resources/
     ├── search.md         # web_search, social_search, news_aggregation, github_search, map_website
     ├── content.md        # content_operations, document_analysis
     └── research.md       # research_topic, scientific_research, research_agent
 ```
 
-The CLI connects to the live server at `https://RivalSearchMCP.fastmcp.app/mcp` and runs with `uv run cli.py`. Users can copy `skills/rival-search-mcp/` to `~/.claude/skills/` for global use in Claude Code.
+The CLI connects to the live server at `https://RivalSearchMCP.fastmcp.app/mcp` and runs with `uv run scripts/cli.py`. Users can copy `skills/rival-search-mcp/` to `~/.claude/skills/` for global use in Claude Code.
 
 ## Code Style Standards
 

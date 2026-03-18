@@ -5,12 +5,12 @@ description: "Deep research and competitor analysis using RivalSearchMCP. 10 too
 
 # RivalSearchMCP
 
-You have access to 10 research tools via the CLI at `cli.py`. Run all commands with `uv run cli.py`.
+You have access to 10 research tools via the CLI at `scripts/cli.py`. Run all commands with `uv run scripts/cli.py`.
 
 ## How to invoke tools
 
 ```bash
-uv run cli.py call-tool <tool_name> --flag value
+uv run scripts/cli.py call-tool <tool_name> --flag value
 ```
 
 ## Available tools
