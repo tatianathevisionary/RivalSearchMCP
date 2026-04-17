@@ -2,8 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 ![MCP Server](https://img.shields.io/badge/MCP-Server-blue?style=for-the-badge)
-![Python](https://img.shields.io/badge/Python-3.9+-3776AB?logo=python&logoColor=white&style=for-the-badge)
-![FastMCP](https://img.shields.io/badge/FastMCP-Powered-green?style=for-the-badge)
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white&style=for-the-badge)
+![FastMCP](https://img.shields.io/badge/FastMCP-3.2+-green?style=for-the-badge)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-blue?logo=linkedin&style=for-the-badge)](https://www.linkedin.com/in/damion-rashford)
 
 ![GitHub Stars](https://img.shields.io/github/stars/damionrashford/RivalSearchMCP?style=social)
@@ -12,30 +12,38 @@
 ![Last Commit](https://img.shields.io/github/last-commit/damionrashford/RivalSearchMCP?style=social)
 ![Visitor Count](https://visitor-badge.laobi.icu/badge?page_id=damionrashford.RivalSearchMCP)
 
-**Advanced MCP server for web research, content discovery, social media analysis, and AI-powered research.**
+**Deterministic research MCP server — web + social + academic + news + code + docs, all in one place. No API keys, no in-server LLM, structured outputs for agent chaining.**
 
 > 🆓 **100% Free & Open Source** — No API keys, no subscriptions, no rate limits. Just add one URL and go.
 
 ## What It Does
 
-RivalSearchMCP provides comprehensive tools for accessing web content, performing multi-engine searches across DuckDuckGo, Yahoo, and Wikipedia, analyzing websites, social media, news, GitHub repositories, and documents with OCR. It includes 10 specialized tools organized into key categories for comprehensive web research capabilities.
+RivalSearchMCP is a FastMCP 3.x server exposing **10 specialized tools** that search, fetch, score, and compare information across:
+
+- **5 web search engines** (DuckDuckGo, Bing, Yahoo, Mojeek, Wikipedia) — concurrent, deduplicated, with TLS-fingerprint-safe fetches via Scrapling
+- **9 social platforms** (Reddit, Hacker News, Stack Overflow, Dev.to, Medium, Product Hunt, Bluesky, Lobste.rs, Lemmy) — no authentication
+- **5 news sources** (Google News, Bing News, The Guardian, GDELT, DuckDuckGo News) — with time-range filtering
+- **5 academic databases** (OpenAlex, CrossRef, arXiv, PubMed, Europe PMC) + **4 dataset hubs** (Kaggle, HuggingFace, Dataverse, Zenodo)
+- **GitHub repositories** with built-in rate limiting
+- **Documents** (PDF, Word, text, images) with OCR for images
+- **Website traversal** with research, docs, and mapping modes
+
+**No LLM runs inside the server.** Every tool returns deterministic, auditable output — the caller's model does the synthesis. Tools that benefit from structured output (`content_operations score`, `find_conflicts`) return `ToolResult` with both a human-readable markdown rendering and a parseable `structuredContent` dict, so agents can chain tool outputs without regex-parsing prose.
 
 ## ✅ Why It's Useful
 
-- Access web content and perform searches with anti-detection measures
-- Analyze website content and structure with intelligent crawling
-- Conduct end-to-end research workflows with progress tracking
-- Search social media platforms (Reddit, Hacker News, Dev.to, Product Hunt, Medium)
-- Aggregate news from multiple sources with no authentication required
-- Analyze documents (PDF, Word, Text, Images) with OCR support
-- Search social media and news across 8 platforms simultaneously
-- Integrate with AI assistants for enhanced web research
+- **One connection, ten capabilities** — no need to wire up separate MCP servers per source
+- **Auto-quality scoring** — every result carries a tier/freshness/corroboration/citation score (0-100) and every multi-result response carries an aggregate confidence signal
+- **Conflict detection** — `content_operations find_conflicts` surfaces numeric, date, and polarity disagreements across sources as a first-class signal instead of averaging them away
+- **Persistent research workspaces** — `research_memory` lets an agent iteratively build up a session across calls with findings, notes, and dedup by URL
+- **Entity profiles** — `research_topic(mode="entity")` fans out to 8 sources in parallel and returns a unified report with confidence
+- **Production hygiene** — per-tool timeouts, rate limiting (100 req/min/session), response-size caps, error masking, middleware-level observability
 
 ## 💡 Example Query
 
 Once connected, try asking your AI assistant:
 
-> "Use RivalSearchMCP to research FastAPI vs Django. Search the web, check Reddit and Hacker News discussions, find recent news articles, search GitHub repositories, and analyze academic papers. Then use the research agent to generate a comprehensive comparison report."
+> "Use RivalSearchMCP to research FastAPI vs Django. Run `research_topic` in topic mode on both, aggregate the news, check Reddit and Hacker News for recent discussions, search GitHub for activity, and look for academic papers. Score the top sources, find any conflicts between them, and save the findings to a named research session."
 
 ## 📦 How to Get Started
 
@@ -132,21 +140,25 @@ uv sync
 
 ## 🛠 Available Tools (10 Total)
 
+Every tool carries `ToolAnnotations` (`readOnlyHint`, `openWorldHint`, `destructiveHint`, `idempotentHint`) so MCP clients like Claude and ChatGPT can skip confirmation prompts where safe. Every tool has a `timeout=` ceiling so a hung source can't stall the client.
+
 ### Search & Discovery (5 tools)
-- `web_search` — Multi-engine search across DuckDuckGo, Yahoo, and Wikipedia with intelligent fallbacks
-- `social_search` — Search Reddit, Hacker News, Dev.to, Product Hunt, and Medium (NO AUTH)
-- `news_aggregation` — Aggregate news from Google News, DuckDuckGo News, and Yahoo News (NO AUTH)
-- `github_search` — Search GitHub repositories with 60/hour rate limiting (NO AUTH)
-- `map_website` — Intelligent website exploration with research, documentation, and mapping modes
+- **`web_search`** — concurrent multi-engine search across DuckDuckGo, Bing, Yahoo, Mojeek, and Wikipedia. Scrapling-backed TLS fingerprinting bypasses Cloudflare/Akamai fronting. Per-engine failures don't block the others.
+- **`social_search`** — 9 platforms: Reddit, Hacker News, Stack Overflow, Dev.to, Medium, Product Hunt, Bluesky, Lobste.rs, Lemmy. No authentication.
+- **`news_aggregation`** — 5 sources: Google News, Bing News, The Guardian, GDELT, DuckDuckGo News. Accepts `time_range` (day/week/month/anytime).
+- **`github_search`** — repository search with built-in rate limiting (60/hr unauthenticated), optional README inclusion.
+- **`map_website`** — traverse a site in `research`, `docs`, or `map` mode; returns per-page quality scores and an aggregate confidence signal.
 
 ### Content Analysis (3 tools)
-- `content_operations` — Consolidated tool for retrieving, streaming, analyzing, and extracting content from URLs
-- `research_topic` — End-to-end research workflow for comprehensive topic analysis
-- `document_analysis` — Extract text from PDF, Word, Text files, and Images with EasyOCR (NO AUTH, 50MB limit)
+- **`content_operations`** — one tool, six operations: `retrieve`, `stream`, `analyze`, `extract`, `score`, `find_conflicts`.
+  - `score` rates URLs on tier / freshness / corroboration / citations (0-100) and returns both markdown + structured JSON.
+  - `find_conflicts` compares 2-10 sources for numeric / date / polarity disagreements with confidence weights.
+- **`research_topic`** — two modes: `topic` (search + fetch + relevance-ranked key findings) and `entity` (unified cross-source profile of a named entity, fanning out to web / news / GitHub / social / academic in parallel). Optional `session_id` auto-saves findings to research memory.
+- **`document_analysis`** — extract text from PDF, Word, plain text, and images. Images use EasyOCR (lazy-loaded; no setup). 50 MB cap.
 
-### Research & Scientific (2 tools)
-- `scientific_research` — Academic paper search and dataset discovery across arXiv, Semantic Scholar (NO AUTH)
-- `research_agent` — AI research agent with autonomous tool calling using OpenRouter (7 tools available)
+### Research Workflow (2 tools)
+- **`scientific_research`** — academic paper and dataset search. 5 paper providers (OpenAlex, CrossRef, arXiv, PubMed, Europe PMC) and 4 dataset hubs (Kaggle, HuggingFace, Dataverse, Zenodo).
+- **`research_memory`** — persistent research workspaces with `start` / `add` / `get` / `list` / `delete`. Sessions survive reconnects; with `RESEARCH_MEMORY_DIR` set, they also survive server restarts. Dedupes findings by URL automatically.
 
 ## Agent Skills
 
@@ -182,22 +194,25 @@ skills/rival-search-mcp/
 ├── scripts/
 │   └── cli.py            # Standalone CLI with all 10 tools
 └── resources/
-    ├── search.md         # web_search, social_search, news, github, map_website
+    ├── search.md         # web_search, social_search, news_aggregation, github_search, map_website
     ├── content.md        # content_operations, document_analysis
-    └── research.md       # research_topic, scientific_research, research_agent
+    └── research.md       # research_topic, scientific_research, research_memory
 ```
 
 ## ⚡ Key Features
 
-- **Multi-Engine Search**: 3 search engines (DuckDuckGo, Yahoo, Wikipedia) with automatic fallbacks
-- **Social Media Research**: Search across 5 platforms (Reddit, Hacker News, Dev.to, Product Hunt, Medium)
-- **News Aggregation**: 3 news sources (Google News, DuckDuckGo News, Yahoo News)
-- **GitHub Integration**: Repository search with built-in rate limiting
-- **Document Analysis**: PDF, Word, Text, and Images with EasyOCR (zero-install, auto-downloads models)
-- **AI Research Agent**: Autonomous research agent that uses 7 tools and generates 4000+ character reports
-- **Content Processing**: Advanced content extraction and analysis with workflow hints
-- **Scientific Discovery**: Academic paper and dataset search across arXiv and Semantic Scholar
-- **Zero Authentication**: All 10 tools work without any API keys or authentication
+- **Multi-Engine Search**: 5 search engines (DuckDuckGo, Bing, Yahoo, Mojeek, Wikipedia) with TLS-fingerprint-safe fetches via Scrapling
+- **9-Platform Social Research**: Reddit, Hacker News, Stack Overflow, Dev.to, Medium, Product Hunt, Bluesky, Lobste.rs, Lemmy
+- **5-Source News Aggregation**: Google News, Bing News, The Guardian, GDELT, DuckDuckGo News — with time-range filtering
+- **5 Academic Databases + 4 Dataset Hubs**: OpenAlex, CrossRef, arXiv, PubMed, Europe PMC + Kaggle, HuggingFace, Dataverse, Zenodo
+- **Deterministic Output**: no LLM runs inside the server; callers' models do the synthesis
+- **Structured `ToolResult`**: `content_operations score` and `find_conflicts` return both markdown (for humans) and parseable JSON (for agent chaining)
+- **Auto-Quality Scoring**: every multi-result tool attaches per-item quality (0-100) and an aggregate confidence signal
+- **Conflict Detection**: finds numeric/date/polarity disagreements across sources with confidence weights
+- **Persistent Research Memory**: named workspaces with auto-dedup, survive server restarts when `RESEARCH_MEMORY_DIR` is set
+- **Document Analysis**: PDF / Word / text / images (images via EasyOCR, auto-downloaded)
+- **Production Hygiene**: per-tool timeouts, sliding-window rate limiting, response-size caps, error masking, FastMCP 3.x middleware stack
+- **Zero Authentication**: every tool works without API keys or setup.
 
 ## 💬 FAQ
 
@@ -222,12 +237,14 @@ RivalSearchMCP works with any MCP-compatible client including Claude Desktop, Cu
 <details>
 <summary><strong>Can I self-host this?</strong></summary>
 
-Absolutely! Clone the repo, install dependencies, and run `python server.py`. Full instructions are in the Getting Started section above.
+Yes. Clone the repo, run `uv sync --extra dev`, then `fastmcp run` (stdio) or `fastmcp run --transport http --host 0.0.0.0 --port 8000` (HTTP). Full instructions are in the Getting Started section above.
 </details>
 
-## 📚 Documentation
+<details>
+<summary><strong>Why is there no in-server LLM / research agent?</strong></summary>
 
-For detailed guides and examples, visit the **[Full Documentation](https://damionrashford.github.io/RivalSearchMCP)**.
+Deliberately. The server returns deterministic, auditable output so the caller's model can reason over it — a consistent machine can't hallucinate the way a synthesizing one can. If you want an autonomous agent loop, run it in your client.
+</details>
 
 ## 🤝 Contributing
 

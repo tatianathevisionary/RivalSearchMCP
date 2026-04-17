@@ -23,9 +23,8 @@ class MetricsCollector:
         self.system_metrics = {}
         self.app_metrics = defaultdict(dict)
         self.custom_metrics = defaultdict(lambda: defaultdict(float))
-        self.metric_history = defaultdict(lambda: deque(maxlen=100))  # Keep last 100 readings
+        self.metric_history = defaultdict(lambda: deque(maxlen=100))
 
-        # Start background collection
         self._collection_task: Optional[asyncio.Task] = None
         self._running = False
 
@@ -60,21 +59,12 @@ class MetricsCollector:
     async def _collect_system_metrics(self):
         """Collect system-level metrics."""
         try:
-            # CPU metrics
             cpu_percent = psutil.cpu_percent(interval=1)
             cpu_count = psutil.cpu_count()
             cpu_freq = psutil.cpu_freq()
-
-            # Memory metrics
             memory = psutil.virtual_memory()
-
-            # Disk metrics
             disk = psutil.disk_usage("/")
-
-            # Network metrics (basic)
             net_io = psutil.net_io_counters()
-
-            # Process metrics
             process = psutil.Process()
             process_memory = process.memory_info()
             process_cpu = process.cpu_percent()
@@ -113,7 +103,6 @@ class MetricsCollector:
                 },
             }
 
-            # Store in history
             for category, metrics in self.system_metrics.items():
                 if category != "timestamp":
                     self.metric_history[f"system.{category}"].append(metrics)
@@ -140,7 +129,6 @@ class MetricsCollector:
             self.custom_metrics["histogram"][key] = []
         self.custom_metrics["histogram"][key].append(value)
 
-        # Keep only recent values
         if len(self.custom_metrics["histogram"][key]) > 1000:
             self.custom_metrics["histogram"][key] = self.custom_metrics["histogram"][key][-1000:]
 
@@ -152,19 +140,12 @@ class MetricsCollector:
         return f"{name}{{{label_str}}}"
 
     async def get_all_metrics(self) -> Dict[str, Any]:
-        """Get all collected metrics.
-
-        Must be async: cache_manager.get_stats() and
-        security.get_security_stats() are coroutines, and the previous
-        implementation called `asyncio.run()` inside them -- which
-        raises RuntimeError the moment this method is awaited from
-        within a running event loop (i.e. every time the /metrics HTTP
-        route executes).
-        """
-        # Get performance metrics from the performance monitor
+        """Get all collected metrics. Must be async because
+        cache_manager.get_stats() and security.get_security_stats()
+        are coroutines; awaiting them from a sync method inside a
+        running event loop raises RuntimeError."""
         perf_stats = performance_monitor.get_overall_stats()
 
-        # Get cache metrics if available
         cache_stats = {}
         try:
             from src.core.cache.cache_manager import get_cache_manager
@@ -174,7 +155,6 @@ class MetricsCollector:
         except Exception as e:
             logger.debug("cache stats unavailable: %s", e)
 
-        # Get security metrics
         security_stats = {}
         try:
             from src.core.security.security import get_security_middleware
@@ -198,11 +178,9 @@ class MetricsCollector:
         """Generate Prometheus-compatible metrics output."""
         lines = []
 
-        # System metrics
         if self.system_metrics:
             lines.extend(self._format_prometheus_system_metrics())
 
-        # Custom metrics
         lines.extend(self._format_prometheus_custom_metrics())
 
         return "\n".join(lines)
@@ -212,13 +190,11 @@ class MetricsCollector:
         lines = []
         timestamp = self.system_metrics.get("timestamp", time.time())
 
-        # CPU metrics
         cpu = self.system_metrics.get("cpu", {})
         lines.append("# HELP rival_search_cpu_percent Current CPU usage percentage")
         lines.append("# TYPE rival_search_cpu_percent gauge")
         lines.append(f'rival_search_cpu_percent {cpu.get("percent", 0)} {int(timestamp * 1000)}')
 
-        # Memory metrics
         memory = self.system_metrics.get("memory", {})
         lines.append("# HELP rival_search_memory_used_gb Memory used in GB")
         lines.append("# TYPE rival_search_memory_used_gb gauge")
@@ -226,7 +202,6 @@ class MetricsCollector:
             f'rival_search_memory_used_gb {memory.get("used_gb", 0)} {int(timestamp * 1000)}'
         )
 
-        # Process metrics
         process = self.system_metrics.get("process", {})
         lines.append("# HELP rival_search_process_memory_mb Process memory usage in MB")
         lines.append("# TYPE rival_search_process_memory_mb gauge")
@@ -241,19 +216,16 @@ class MetricsCollector:
         lines = []
         timestamp = int(time.time() * 1000)
 
-        # Counters
         for metric_key, value in self.custom_metrics["counter"].items():
             lines.append(f"# HELP {metric_key} Custom counter metric")
             lines.append(f"# TYPE {metric_key} counter")
             lines.append(f"{metric_key} {value} {timestamp}")
 
-        # Gauges
         for metric_key, value in self.custom_metrics["gauge"].items():
             lines.append(f"# HELP {metric_key} Custom gauge metric")
             lines.append(f"# TYPE {metric_key} gauge")
             lines.append(f"{metric_key} {value} {timestamp}")
 
-        # Histograms (simplified)
         for metric_key, values in self.custom_metrics["histogram"].items():
             if values:
                 lines.append(f"# HELP {metric_key} Custom histogram metric")
@@ -269,20 +241,16 @@ class MetricsCollector:
         if not self.system_metrics:
             return {"status": "unknown", "message": "No metrics available"}
 
-        # Check various health indicators
         issues = []
 
-        # CPU usage check
         cpu_percent = self.system_metrics.get("cpu", {}).get("percent", 0)
         if cpu_percent > 90:
             issues.append(f"High CPU usage: {cpu_percent}%")
 
-        # Memory usage check
         memory_percent = self.system_metrics.get("memory", {}).get("percent", 0)
         if memory_percent > 90:
             issues.append(f"High memory usage: {memory_percent}%")
 
-        # Performance check
         perf_stats = performance_monitor.get_overall_stats()
         if "overall_success_rate" in perf_stats:
             success_rate = perf_stats["overall_success_rate"]
@@ -299,7 +267,6 @@ class MetricsCollector:
         }
 
 
-# Global metrics collector
 _metrics_collector = None
 
 
@@ -309,11 +276,3 @@ def get_metrics_collector() -> MetricsCollector:
     if _metrics_collector is None:
         _metrics_collector = MetricsCollector()
     return _metrics_collector
-
-
-# NOTE: start_metrics_collection / stop_metrics_collection /
-# record_request_metrics / record_tool_usage / record_cache_metrics
-# existed in an earlier version but were never wired up to the server
-# -- they were dead code. The live surface is now only
-# get_metrics_collector() + MetricsCollector.get_all_metrics() /
-# .get_prometheus_metrics(), exposed via src/routes/routes.py.

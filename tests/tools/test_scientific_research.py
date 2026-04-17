@@ -83,8 +83,10 @@ async def test_academic_search_arxiv_source():
         print("✅ arXiv source test passed")
 
 
-async def test_academic_search_semantic_scholar():
-    """Test academic_search with Semantic Scholar source."""
+async def test_academic_search_openalex():
+    """Test academic_search with OpenAlex source (replaces the removed
+    Semantic Scholar test; OpenAlex covers the same ~240M-work surface
+    without needing an API key)."""
     async with create_client() as client:
         result = await client.call_tool(
             "scientific_research",
@@ -92,14 +94,14 @@ async def test_academic_search_semantic_scholar():
                 "operation": "academic_search",
                 "query": "computer vision",
                 "max_results": 5,
-                "sources": ["semantic_scholar"],
+                "sources": ["openalex"],
             },
         )
 
         output = result.content[0].text
-        assert len(output) > 100, "Semantic Scholar search output too minimal"
+        assert len(output) > 100, "OpenAlex search output too minimal"
 
-        print("✅ Semantic Scholar source test passed")
+        print("✅ OpenAlex source test passed")
 
 
 async def test_academic_search_multiple_sources():
@@ -111,7 +113,7 @@ async def test_academic_search_multiple_sources():
                 "operation": "academic_search",
                 "query": "reinforcement learning",
                 "max_results": 5,
-                "sources": ["arxiv", "semantic_scholar"],
+                "sources": ["arxiv", "openalex"],
             },
         )
 
@@ -177,7 +179,7 @@ if __name__ == "__main__":
     asyncio.run(test_academic_search_default())
     asyncio.run(test_academic_search_max_results())
     asyncio.run(test_academic_search_arxiv_source())
-    asyncio.run(test_academic_search_semantic_scholar())
+    asyncio.run(test_academic_search_openalex())
     asyncio.run(test_academic_search_multiple_sources())
     asyncio.run(test_dataset_discovery_default())
     asyncio.run(test_dataset_discovery_max_results())

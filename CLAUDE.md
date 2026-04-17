@@ -190,12 +190,12 @@ app = FastMCP(
 
 All environment variables are optional — the system works without any configuration:
 
-- `SEMANTIC_SCHOLAR_API_KEY` — re-enables the Semantic Scholar provider in
-  `scientific_research`. Disabled by default because the anonymous Graph
-  API is 429-rate-limited and OpenAlex covers the same surface with no key.
 - `ENVIRONMENT` - Set to `production` for HTTP transport
 - `PORT` - Server port for HTTP mode (default: 8000)
 - `LOG_LEVEL` - Logging verbosity (default: INFO)
+- `RESEARCH_MEMORY_DIR` - If set, `research_memory` sessions are persisted
+  to this filesystem path (otherwise they live in an in-memory MemoryStore
+  that doesn't survive server restarts).
 
 ## Testing Configuration
 

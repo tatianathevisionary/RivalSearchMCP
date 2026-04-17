@@ -106,12 +106,17 @@ src/
 │   ├── trends.py         # trends_core, trends_export tools
 │   └── research_modules/ # AI-enhanced research (OpenRouter integration)
 ├── core/           # Core business logic (reusable, not MCP-specific)
-│   ├── search/     # Multi-engine search orchestration
-│   ├── content/    # Extraction, parsing, cleaning (6-tier fallback)
-│   ├── trends/     # Google Trends API wrapper
-│   ├── scientific/ # Academic search (arXiv, PubMed, Semantic Scholar, etc.)
+│   ├── search/     # Multi-engine search (DDG, Bing, Yahoo, Mojeek, Wikipedia)
+│   ├── content/    # UnifiedContentExtractor
+│   ├── news/       # 5-source news aggregator
+│   ├── social/     # 9 platform adapters
+│   ├── scientific/ # Academic (OpenAlex, CrossRef, arXiv, PubMed, Europe PMC)
+│   │              # + datasets (Kaggle, HuggingFace, Dataverse, Zenodo)
+│   ├── quality/    # Source-quality scoring
+│   ├── conflict/   # Numeric / date / polarity conflict detection
+│   ├── memory/     # Persistent research workspaces
 │   ├── traverse/   # Website crawling logic
-│   ├── bypass/     # Anti-detection, proxy handling
+│   ├── cache/      # py-key-value-aio backed cache
 │   └── security/   # Rate limiting, IP filtering
 ├── middleware/     # FastMCP middleware (timing, security, metrics)
 ├── schemas/        # Pydantic validation schemas

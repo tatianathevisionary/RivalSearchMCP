@@ -81,7 +81,6 @@ class DocumentAnalyzer:
             Dictionary with document content and metadata
         """
         try:
-            # Download document
             logger.info(f"Downloading document from: {url}")
             async with httpx.AsyncClient(headers=self.headers, timeout=60.0) as client:
                 response = await client.get(url, follow_redirects=True)
@@ -90,20 +89,17 @@ class DocumentAnalyzer:
                 content_type = response.headers.get("content-type", "")
                 content_length = len(response.content)
 
-                # Check file size
                 if content_length > self.max_file_size:
                     return {
                         "status": "error",
                         "error": f"Document too large: {content_length / 1024 / 1024:.1f}MB (max 50MB)",
                     }
 
-                # Detect document type
                 doc_type = self._detect_document_type(url, content_type)
                 logger.info(f"Document type detected: {doc_type}")
 
                 doc_bytes = response.content
 
-            # Route to appropriate handler based on doc type
             if doc_type == "pdf":
                 return await self._analyze_pdf(doc_bytes, url, max_pages, extract_metadata)
             elif doc_type == "docx":
@@ -113,7 +109,6 @@ class DocumentAnalyzer:
             elif doc_type in ["txt", "markdown"]:
                 return await self._analyze_text(doc_bytes, url, doc_type)
             else:
-                # Try to extract as text
                 return await self._analyze_text(doc_bytes, url, "unknown")
 
         except Exception as e:
@@ -132,7 +127,6 @@ class DocumentAnalyzer:
         pdf_file = io.BytesIO(doc_bytes)
         reader = PdfReader(pdf_file)
 
-        # Extract metadata
         metadata = {}
         if extract_metadata and reader.metadata:
             metadata = {
@@ -141,7 +135,6 @@ class DocumentAnalyzer:
                 "subject": reader.metadata.get("/Subject", ""),
             }
 
-        # Extract text
         text_content = []
         pages_to_extract = min(len(reader.pages), max_pages)
 
@@ -152,11 +145,9 @@ class DocumentAnalyzer:
 
         full_text = "\n\n".join(text_content)
 
-        # The old code called a _ocr_pdf_pages() fallback here that
-        # never actually OCR'd anything -- it was a stub returning "".
-        # Rendering PDF pages to images requires pdf2image (plus a
-        # Poppler system dep). Until that's wired up properly, we don't
-        # claim OCR support for scanned PDFs.
+        # Scanned PDFs would need pdf2image + Poppler to rasterize pages
+        # for OCR; not wired up, so we report ocr_used=False honestly
+        # rather than claiming OCR was attempted.
         if len(full_text.strip()) < 100:
             logger.info("PDF returned minimal extractable text; no OCR fallback configured.")
 
@@ -180,7 +171,6 @@ class DocumentAnalyzer:
         try:
             from docx import Document
         except ImportError:
-            # Try basic XML parsing as fallback
             return {
                 "status": "partial",
                 "document_type": "docx",
@@ -191,7 +181,6 @@ class DocumentAnalyzer:
         doc_file = io.BytesIO(doc_bytes)
         document = Document(doc_file)
 
-        # Extract text from paragraphs
         text_content = []
         for paragraph in document.paragraphs:
             if paragraph.text.strip():
@@ -199,7 +188,6 @@ class DocumentAnalyzer:
 
         full_text = "\n\n".join(text_content)
 
-        # Extract metadata
         metadata = {}
         if extract_metadata:
             core_props = document.core_properties
@@ -223,10 +211,8 @@ class DocumentAnalyzer:
     async def _analyze_text(self, doc_bytes: bytes, url: str, doc_type: str) -> Dict[str, Any]:
         """Analyze text-based document."""
         try:
-            # Try UTF-8 decoding
             text = doc_bytes.decode("utf-8")
         except UnicodeDecodeError:
-            # Try other encodings
             for encoding in ["latin-1", "cp1252", "iso-8859-1"]:
                 try:
                     text = doc_bytes.decode(encoding)
@@ -262,11 +248,8 @@ class DocumentAnalyzer:
 
             image = Image.open(io.BytesIO(image_bytes))
 
-            # EasyOCR's real API is `Reader(lang_list).readtext(image)`
-            # which returns a list of (bbox, text, confidence) tuples.
-            # The previous code called `easyocr.image_to_string(image)`
-            # -- that function does not exist on the easyocr module and
-            # would raise AttributeError the first time this path ran.
+            # EasyOCR returns (bbox, text, confidence) tuples from readtext;
+            # detail=0 + paragraph=True collapses that to joined strings.
             reader = easyocr.Reader(["en"], gpu=False)
             fragments = reader.readtext(np.array(image), detail=0, paragraph=True)
             text = "\n".join(fragments)

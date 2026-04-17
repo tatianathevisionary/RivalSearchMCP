@@ -65,12 +65,6 @@ def register_scientific_tools(mcp: FastMCP):
           - pubmed           NCBI biomedical index
           - europepmc        biomedical + bioRxiv/medRxiv preprints
 
-        semantic_scholar is no longer enabled by default -- the public
-        Graph API 429-rate-limits anonymous callers into uselessness and
-        there is no working scrape path (the SPA renders client-side).
-        OpenAlex covers the same ~240M-work surface area with no key.
-        Set SEMANTIC_SCHOLAR_API_KEY in the environment to re-enable it.
-
         Sources for dataset_discovery:
           - kaggle           Kaggle datasets list endpoint
           - huggingface      HuggingFace Hub datasets

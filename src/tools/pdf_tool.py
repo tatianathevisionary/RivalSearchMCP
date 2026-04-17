@@ -23,7 +23,6 @@ def register_pdf_tools(mcp: FastMCP):
             "destructiveHint": False,
             "idempotentHint": True,
         },
-        # Large PDFs with OCR can take a while.
         timeout=180.0,
     )
     async def document_analysis(

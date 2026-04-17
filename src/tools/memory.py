@@ -33,17 +33,11 @@ def register_memory_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         annotations={
             "title": "Research Memory",
-            # NOT read-only: `delete`/`add`/`start` mutate local workspace state.
             "readOnlyHint": False,
-            # Closed world: operates on a local key/value store, no external APIs.
             "openWorldHint": False,
-            # `delete` permanently removes a session.
             "destructiveHint": True,
-            # `add` appends on each call; `start` creates new ids. Not idempotent.
             "idempotentHint": False,
         },
-        # Local key/value store -- fast unless the backend is a remote
-        # filesystem. Tight timeout flags a stuck store quickly.
         timeout=15.0,
     )
     async def research_memory(

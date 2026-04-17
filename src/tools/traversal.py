@@ -79,11 +79,9 @@ def register_traversal_tools(mcp: FastMCP):
 
             await _progress(60, 100, f"fetched {len(result)} pages, cleaning content")
 
-            # Convert result to simple dict format with clean content
             pages = []
             total_pages = len(result)
             for i, page_dict in enumerate(result, 1):
-                # Clean HTML content
                 raw_content = page_dict.get("content", "")
                 clean_content = clean_html_to_markdown(str(raw_content), page_dict.get("url", ""))
 
@@ -95,7 +93,7 @@ def register_traversal_tools(mcp: FastMCP):
                         "depth": page_dict.get("depth", 0),
                     }
                 )
-                # Map page-cleaning into the 60-85% range.
+                # Map page-cleaning into the 60-85% progress range.
                 if total_pages:
                     await _progress(
                         60 + (25 * i / total_pages),
@@ -113,7 +111,6 @@ def register_traversal_tools(mcp: FastMCP):
             }
 
             if generate_llms_txt:
-                # Generate LLMs.txt content
                 llms_txt_content = f"""# {url}
 
 This file contains information about {url} for Large Language Models.
@@ -128,12 +125,11 @@ This file contains information about {url} for Large Language Models.
 
 ## Key Pages
 """
-                for page in pages[:10]:  # Include up to 10 key pages
+                for page in pages[:10]:
                     llms_txt_content += f"- {page['title']}: {page['url']}\n"
 
                 response["llms_txt"] = llms_txt_content
 
-            # Auto-attach quality scores + aggregate confidence per page.
             await _progress(90, 100, "scoring results")
             try:
                 from src.core.quality import assess_results, summarize_quality

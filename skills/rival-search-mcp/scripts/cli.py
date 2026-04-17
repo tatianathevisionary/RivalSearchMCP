@@ -479,7 +479,7 @@ async def scientific_research(
     sources: Annotated[
         str | None,
         cyclopts.Parameter(
-            help="JSON array of sources: arxiv, semantic_scholar, pubmed, kaggle, huggingface"
+            help="JSON array of sources: openalex, crossref, arxiv, pubmed, europepmc, kaggle, huggingface, dataverse, zenodo"
         ),
     ] = None,
     categories: Annotated[
@@ -489,8 +489,8 @@ async def scientific_research(
     """Scientific research: academic papers and dataset discovery.
 
     Operations:
-        academic_search    — Search arXiv, PubMed, Semantic Scholar
-        dataset_discovery  — Search Kaggle, HuggingFace
+        academic_search    — Search OpenAlex, CrossRef, arXiv, PubMed, Europe PMC
+        dataset_discovery  — Search Kaggle, HuggingFace, Dataverse, Zenodo
 
     Examples:
         uv run cli.py call-tool scientific_research --operation academic_search --query "transformers"

@@ -12,7 +12,6 @@ import httpx
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 
-# Performance optimization imports
 try:
     from selectolax.parser import HTMLParser
 
@@ -26,15 +25,6 @@ try:
     LXML_AVAILABLE = importlib.util.find_spec("lxml") is not None
 except Exception:
     LXML_AVAILABLE = False
-
-# Check if content extraction utilities are available
-try:
-    CONTENT_UTILS_AVAILABLE = (
-        importlib.util.find_spec("src.utils.content") is not None
-        and importlib.util.find_spec("src.utils.parsing") is not None
-    )
-except Exception:
-    CONTENT_UTILS_AVAILABLE = False
 
 from src.logging.logger import logger
 
@@ -96,7 +86,8 @@ class BaseSearchEngine:
         self.name = name
         self.base_url = base_url
 
-        # Optimized HTTP client with realistic browser headers to avoid bot detection
+        # Browser-like headers matter -- plain httpx default UA gets 403
+        # from most search engines and Cloudflare-fronted targets.
         limits = httpx.Limits(max_keepalive_connections=20, max_connections=100)
         self.session = httpx.AsyncClient(
             timeout=httpx.Timeout(30.0, connect=10.0, read=20.0),
@@ -137,7 +128,6 @@ class BaseSearchEngine:
         self.visited_urls.add(url)
 
         try:
-            # Use session directly (it's already an AsyncClient)
             response = await self.session.get(url)
             response.raise_for_status()
             return response.text
@@ -146,22 +136,18 @@ class BaseSearchEngine:
             return None
 
     def _extract_real_url(self, url: str) -> Optional[str]:
-        """Extract real URL from redirect links."""
+        """Unwrap common search-engine redirect links to their target URL."""
         try:
-            # Handle DuckDuckGo redirects
             if "duckduckgo.com" in url and "uddg=" in url:
                 parsed = urlparse(url)
                 query_params = parse_qs(parsed.query)
                 if "uddg" in query_params:
                     return query_params["uddg"][0]
 
-            # Handle other redirect patterns
             if "redirect" in url.lower() or "go" in url.lower():
-                # Extract from query parameters
                 parsed = urlparse(url)
                 query_params = parse_qs(parsed.query)
 
-                # Common redirect parameter names
                 for param in ["url", "target", "link", "dest", "to"]:
                     if param in query_params:
                         return query_params[param][0]
@@ -179,11 +165,11 @@ class BaseSearchEngine:
         return extractor.extract(html_content)
 
     def _extract_internal_links(self, html_content: str, base_url: str) -> List[str]:
-        """Extract internal links from HTML content using optimized methods."""
+        """Extract same-domain links. Prefers selectolax; falls back to
+        BeautifulSoup(lxml) if selectolax isn't installed or fails."""
         try:
             links = []
 
-            # Method 1: Use selectolax for ultra-fast link extraction (if available)
             if SELECTOLAX_AVAILABLE:
                 try:
                     parser = HTMLParser(html_content)
@@ -198,13 +184,10 @@ class BaseSearchEngine:
                             href = link.attributes["href"]
                             absolute_url = urljoin(base_url, str(href))
 
-                            # Only include internal links (same domain)
                             if self._extract_domain(absolute_url) == self._extract_domain(base_url):
                                 links.append(absolute_url)
 
                     if links:
-                        logger.debug("Method 1 (selectolax) succeeded for link extraction")
-                        # Remove duplicates and limit
                         unique_links = list(set(links))[:10]
                         logger.info(f"Extracted {len(unique_links)} internal links from {base_url}")
                         return unique_links
@@ -212,7 +195,6 @@ class BaseSearchEngine:
                 except Exception as e:
                     logger.debug(f"selectolax link extraction failed: {e}")
 
-            # Method 2: Fallback to BeautifulSoup with lxml parser
             parser_name = "lxml" if LXML_AVAILABLE else "html.parser"
             soup = BeautifulSoup(html_content, parser_name)
 
@@ -227,14 +209,12 @@ class BaseSearchEngine:
                         href = link.attrs["href"]
                         absolute_url = urljoin(base_url, str(href))
 
-                        # Only include internal links (same domain)
                         if self._extract_domain(absolute_url) == self._extract_domain(base_url):
                             links.append(absolute_url)
                 except Exception:
                     continue
 
-            # Remove duplicates and limit
-            unique_links = list(set(links))[:10]  # Limit to 10 internal links
+            unique_links = list(set(links))[:10]
             logger.info(f"Extracted {len(unique_links)} internal links from {base_url}")
             return unique_links
 
@@ -248,7 +228,6 @@ class BaseSearchEngine:
         """Extract content from internal links (second level) using concurrent processing."""
         second_level = {}
 
-        # Process second level links concurrently for better performance
         async def process_second_level_link(link: str) -> Tuple[str, Dict[str, Any]]:
             try:
                 logger.info(f"Extracting second level content from: {link}")
@@ -257,7 +236,6 @@ class BaseSearchEngine:
                 if not content:
                     return link, {}
 
-                # Extract main content using optimized methods
                 main_content = self._extract_main_content(content)
                 internal_links = self._extract_internal_links(content, link)
 
@@ -270,7 +248,6 @@ class BaseSearchEngine:
                     "internal_links": internal_links,
                 }
 
-                # Extract third level content concurrently (limited to 2 links)
                 if internal_links:
                     third_level = await self._extract_third_level_content_concurrent(
                         internal_links[:2]
@@ -283,11 +260,9 @@ class BaseSearchEngine:
                 logger.warning(f"Failed to extract second level from {link}: {e}")
                 return link, {}
 
-        # Process all second level links concurrently
         tasks = [process_second_level_link(link) for link in internal_links[:max_links]]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Build the result dictionary
         for result in results:
             if isinstance(result, tuple) and len(result) == 2:
                 link, result_data = result
@@ -320,11 +295,9 @@ class BaseSearchEngine:
                 logger.debug(f"Failed to extract third level from {link}: {e}")
                 return link, {}
 
-        # Process all third level links concurrently
         tasks = [process_third_level_link(link) for link in third_links]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Build the result dictionary
         for result in results:
             if isinstance(result, tuple) and len(result) == 2:
                 link, result_data = result
@@ -349,7 +322,6 @@ class BaseSearchEngine:
         try:
             soup = BeautifulSoup(html_content, "html.parser")
 
-            # Get basic structure info
             structure = {
                 "tag_name": soup.name or "document",
                 "classes": [],
@@ -363,7 +335,6 @@ class BaseSearchEngine:
                 ),
             }
 
-            # Get body or main element
             main_element = soup.find("body") or soup.find("main") or soup
 
             if (
@@ -371,7 +342,6 @@ class BaseSearchEngine:
                 and hasattr(main_element, "attrs")
                 and main_element.attrs
             ):
-                # Extract classes and ID safely
                 attrs = main_element.attrs
                 if "class" in attrs:
                     classes = attrs["class"]
@@ -383,14 +353,12 @@ class BaseSearchEngine:
                 if "id" in attrs:
                     structure["id"] = str(attrs["id"])
 
-                # Extract data attributes
                 data_attrs = {}
                 for attr, value in attrs.items():
                     if attr.startswith("data-"):
                         data_attrs[attr] = str(value)
                 structure["data_attributes"] = data_attrs
 
-                # Extract child elements info safely
                 children = []
                 try:
                     if (
@@ -398,11 +366,10 @@ class BaseSearchEngine:
                         and hasattr(main_element, "find_all")
                         and callable(getattr(main_element, "find_all"))
                     ):
-                        for child in main_element.find_all(recursive=False)[:5]:  # Limit to first 5
+                        for child in main_element.find_all(recursive=False)[:5]:
                             if isinstance(child, Tag) and hasattr(child, "name") and child.name:
                                 child_info = {"tag": child.name, "classes": [], "text_preview": ""}
 
-                                # Safely extract classes
                                 if (
                                     isinstance(child, Tag)
                                     and hasattr(child, "attrs")
@@ -415,7 +382,6 @@ class BaseSearchEngine:
                                     elif isinstance(child_classes, str):
                                         child_info["classes"] = [child_classes]
 
-                                # Safely extract text preview
                                 if (
                                     isinstance(child, Tag)
                                     and hasattr(child, "get_text")

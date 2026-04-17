@@ -129,14 +129,8 @@ Memory (one tool, `operation` enum covers all CRUD):
 - Tools: /tools
 """
 
-# Create enhanced FastMCP server instance. In v3 the per-component
-# `on_duplicate_*` kwargs are collapsed into a single `on_duplicate`
-# and `include_fastmcp_meta` is gone (metadata is always included).
-#
-# mask_error_details=True: generic exceptions surface to clients as
-# "Tool execution failed" instead of leaking internal paths / parser
-# state / httpx URLs. User-facing validation errors must explicitly
-# raise fastmcp.exceptions.ToolError to pass through the mask.
+# mask_error_details=True: generic exceptions surface as "Tool execution
+# failed". Validation errors must raise ToolError to pass through unmasked.
 app = FastMCP(
     name="RivalSearchMCP",
     instructions=SERVER_INSTRUCTIONS,
@@ -144,44 +138,29 @@ app = FastMCP(
     mask_error_details=True,
 )
 
-# Register middleware for production readiness
 register_middleware(app)
 
-# Register all tools using modular approach
+register_search_tools(app)
+register_traversal_tools(app)
+register_analysis_tools(app)
+register_scientific_tools(app)
+register_social_media_tools(app)
+register_news_tools(app)
+register_github_tools(app)
+register_pdf_tools(app)
+register_memory_tools(app)
 
-register_search_tools(app)  # web_search
-register_traversal_tools(app)  # map_website
-register_analysis_tools(app)  # content_operations + research_topic
-register_scientific_tools(app)  # scientific_research
-register_social_media_tools(app)  # social_search
-register_news_tools(app)  # news_aggregation
-register_github_tools(app)  # github_search
-register_pdf_tools(app)  # document_analysis
-register_memory_tools(app)  # research_memory (single tool, 5 ops)
-
-# Register prompts
 register_prompts(app)
-
-# Register custom routes
 register_custom_routes(app)
 
-# Start background tasks that require event loop
 from src.middleware.middleware import start_background_tasks  # noqa: E402
 
 start_background_tasks()
 
 
 def _wrap_http_app_with_security_middleware():
-    """Ensure HTTP-level security middleware is applied for all deployments.
-
-    FastMCP Cloud/Horizon calls app.http_app() directly (ignores __main__),
-    so we wrap it to always include our HTTP-level validation middleware.
-
-    Middleware order (outermost → innermost):
-      1. CORSOriginValidationMiddleware  – blocks untrusted origins (MUST per spec)
-      2. NullIdValidationMiddleware       – rejects id: null requests
-      3. … FastMCP / Starlette internals
-    """
+    """Wrap app.http_app() so FastMCP Cloud, which calls it directly and
+    never enters __main__, still gets the CORS + null-id validators."""
     from starlette.middleware import Middleware
 
     _original_http_app = app.http_app

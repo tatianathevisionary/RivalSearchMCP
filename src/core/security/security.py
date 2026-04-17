@@ -22,7 +22,6 @@ class RateLimiter:
         self.burst_limit = burst_limit
         self.tokens: Dict[str, List[float]] = defaultdict(list)
         self._cleanup_task: Optional[asyncio.Task] = None
-        # Defer task creation until event loop is available
         self._cleanup_started = False
 
     def start_cleanup_task(self):
@@ -35,15 +34,13 @@ class RateLimiter:
         """Periodically clean up expired tokens."""
         while True:
             try:
-                await asyncio.sleep(300)  # Clean up every 5 minutes
+                await asyncio.sleep(300)
                 current_time = time.time()
-                cutoff_time = current_time - 60  # Remove tokens older than 1 minute
+                cutoff_time = current_time - 60
 
                 for client_tokens in self.tokens.values():
-                    # Remove old tokens
                     client_tokens[:] = [t for t in client_tokens if t > cutoff_time]
 
-                # Remove empty client entries
                 empty_clients = [client for client, tokens in self.tokens.items() if not tokens]
                 for client in empty_clients:
                     del self.tokens[client]
@@ -69,7 +66,6 @@ class RateLimiter:
         Returns:
             Tuple of (allowed: bool, remaining_tokens: int)
         """
-        # Bypass rate limiting during tests
         import os
 
         if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("TESTING"):
@@ -78,25 +74,19 @@ class RateLimiter:
         client_key = self._get_client_key(client_ip, user_agent)
         current_time = time.time()
 
-        # Get current tokens for this client
         client_tokens = self.tokens[client_key]
 
-        # Remove expired tokens (older than 1 minute)
         cutoff_time = current_time - 60
         client_tokens[:] = [t for t in client_tokens if t > cutoff_time]
 
-        # Check burst limit
         if len(client_tokens) >= self.burst_limit:
             return False, 0
 
-        # Check rate limit
         if len(client_tokens) >= self.requests_per_minute:
             return False, 0
 
-        # Add new token
         client_tokens.append(current_time)
 
-        # Calculate remaining capacity
         remaining = min(
             self.burst_limit - len(client_tokens), self.requests_per_minute - len(client_tokens)
         )
@@ -132,7 +122,6 @@ class RateLimiter:
 class InputValidator:
     """Input validation and sanitization for security."""
 
-    # Dangerous patterns to block
     DANGEROUS_PATTERNS = [
         r"(?i)<script[^>]*>.*?</script>",  # Script tags
         r"(?i)<iframe[^>]*>.*?</iframe>",  # Iframes
@@ -149,13 +138,11 @@ class InputValidator:
         r"(?i)\.\.\\",  # Windows directory traversal
     ]
 
-    # Allowed URL schemes
     ALLOWED_URL_SCHEMES = {"http", "https"}
 
-    # Maximum lengths
     MAX_QUERY_LENGTH = 500
     MAX_URL_LENGTH = 2000
-    MAX_CONTENT_LENGTH = 100000  # 100KB
+    MAX_CONTENT_LENGTH = 100_000
 
     @classmethod
     def validate_search_query(cls, query: str) -> Tuple[bool, str]:
@@ -179,13 +166,11 @@ class InputValidator:
         if len(query) < 2:
             return False, "Query too short (minimum 2 characters)"
 
-        # Check for dangerous patterns
         for pattern in cls.DANGEROUS_PATTERNS:
             if re.search(pattern, query, re.IGNORECASE):
                 logger.warning(f"Dangerous pattern detected in query: {pattern}")
                 return False, "Query contains potentially dangerous content"
 
-        # Basic sanitization - remove excessive special characters
         cleaned_query = re.sub(
             r"[^\w\s\-_\.\(\)\[\]\{\}\+\=\&\^\%\$\#\@\!\?\,\;\:\'\"]+", "", query
         )
@@ -211,28 +196,22 @@ class InputValidator:
         if len(url) > cls.MAX_URL_LENGTH:
             return False, f"URL too long (max {cls.MAX_URL_LENGTH} characters)"
 
-        # Parse URL
         try:
             parsed = urlparse(url)
 
-            # Check scheme
             if parsed.scheme and parsed.scheme.lower() not in cls.ALLOWED_URL_SCHEMES:
                 return False, f"Invalid URL scheme: {parsed.scheme}. Only HTTP/HTTPS allowed."
 
-            # Check for dangerous patterns in URL
             for pattern in cls.DANGEROUS_PATTERNS:
                 if re.search(pattern, url, re.IGNORECASE):
                     logger.warning(f"Dangerous pattern detected in URL: {pattern}")
                     return False, "URL contains potentially dangerous content"
 
-            # Reconstruct clean URL
             if not parsed.scheme:
-                # Assume HTTPS if no scheme provided
                 clean_url = f"https://{url}"
             else:
                 clean_url = url
 
-            # Validate the reconstructed URL
             parsed_clean = urlparse(clean_url)
             if not parsed_clean.netloc:
                 return False, "Invalid URL format"
@@ -259,16 +238,11 @@ class InputValidator:
         if len(content) > cls.MAX_CONTENT_LENGTH:
             return False, f"Content too large (max {cls.MAX_CONTENT_LENGTH} characters)"
 
-        # Check for dangerous patterns
-        dangerous_found = []
-        for pattern in cls.DANGEROUS_PATTERNS:
-            if re.search(pattern, content, re.IGNORECASE):
-                dangerous_found.append(pattern)
-
+        dangerous_found = [
+            p for p in cls.DANGEROUS_PATTERNS if re.search(p, content, re.IGNORECASE)
+        ]
         if dangerous_found:
             logger.warning(f"Dangerous patterns detected in content: {dangerous_found}")
-            # Don't block content, but log the warning
-            # Return True but with sanitized content
 
         return True, content
 
@@ -366,11 +340,10 @@ class SecurityMiddleware:
         client_ip = request_data.get("client_ip", "unknown")
         user_agent = request_data.get("user_agent", "")
 
-        # Check if IP is blocked
         if client_ip in self.blocked_ips:
             return False, "IP address blocked"
 
-        # Skip rate limiting for stdio/local connections (no IP = trusted local process)
+        # Unknown IP = stdio/local transport; no IP to rate-limit against.
         if client_ip == "unknown":
             allowed, remaining = True, 999
         else:
@@ -380,7 +353,6 @@ class SecurityMiddleware:
             logger.warning(f"Rate limit exceeded for IP: {client_ip}")
             return False, "Rate limit exceeded. Try again later."
 
-        # Validate parameters based on tool being called
         tool_name = request_data.get("tool_name", "")
         parameters = request_data.get("parameters", {})
 
@@ -397,13 +369,11 @@ class SecurityMiddleware:
         validator = self.validator
 
         if tool_name == "multi_search":
-            # Validate query
             if "query" in parameters:
                 valid, result = validator.validate_search_query(parameters["query"])
                 if not valid:
                     return False, f"Invalid query: {result}"
 
-            # Validate numeric parameters
             numeric_params = {
                 "num_results": (1, 20),
                 "max_depth": (1, 3),
@@ -418,9 +388,6 @@ class SecurityMiddleware:
                         return False, str(result)
 
         elif tool_name in ["content_operations", "map_website"]:
-            # Validate URL (traverse_website was renamed to map_website
-            # in the tool-consolidation refactor; the URL-validation path
-            # is identical for both).
             if "url" in parameters:
                 valid, result = validator.validate_url(parameters["url"])
                 if not valid:
@@ -430,8 +397,6 @@ class SecurityMiddleware:
                 valid, result = validator.validate_content(parameters["content"])
                 if not valid:
                     return False, f"Invalid content: {result}"
-
-        # Add more tool validations as needed
 
         return True, "Parameters valid"
 
@@ -461,7 +426,6 @@ class SecurityMiddleware:
         await self.rate_limiter.close()
 
 
-# Global security instance
 _security_instance: Optional[SecurityMiddleware] = None
 
 

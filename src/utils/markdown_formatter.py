@@ -16,14 +16,12 @@ def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
     output += f"**Found {total_results} results** across {len(platforms)} platforms\n\n"
     output += "---\n\n"
 
-    # Add workflow hint
     if total_results > 0:
         output += "💡 **Next Steps:**\n"
         output += "- Use `content_operations` to retrieve full content from discussion URLs\n"
         output += "- Use `find_conflicts` to surface disagreements between sources\n\n"
         output += "---\n\n"
 
-    # Reddit results
     if "reddit" in results and results["reddit"].get("results"):
         output += "## Reddit Results\n\n"
         for i, post in enumerate(results["reddit"]["results"][:10], 1):
@@ -34,7 +32,6 @@ def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
             output += f"[🔗 View on Reddit]({post['url']})\n\n"
             output += "---\n\n"
 
-    # Hacker News results
     if "hackernews" in results and results["hackernews"].get("results"):
         output += "## Hacker News Results\n\n"
         for i, story in enumerate(results["hackernews"]["results"][:10], 1):
@@ -45,7 +42,6 @@ def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
             output += f"[💬 Discussion]({story['hn_url']})\n\n"
             output += "---\n\n"
 
-    # Dev.to results
     if "devto" in results and results["devto"].get("results"):
         output += "## Dev.to Results\n\n"
         for i, article in enumerate(results["devto"]["results"][:10], 1):
@@ -57,7 +53,6 @@ def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
             output += f"[🔗 Read Article]({article['url']})\n\n"
             output += "---\n\n"
 
-    # Product Hunt results
     if "producthunt" in results and results["producthunt"].get("results"):
         output += "## Product Hunt Results\n\n"
         for i, product in enumerate(results["producthunt"]["results"][:10], 1):
@@ -69,7 +64,6 @@ def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
             output += f"[🔗 View on Product Hunt]({product['url']})\n\n"
             output += "---\n\n"
 
-    # Medium results
     if "medium" in results and results["medium"].get("results"):
         output += "## Medium Results\n\n"
         for i, article in enumerate(results["medium"]["results"][:10], 1):
@@ -81,7 +75,6 @@ def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
             output += f"[🔗 Read on Medium]({article['url']})\n\n"
             output += "---\n\n"
 
-    # Stack Overflow / Stack Exchange results
     if "stackoverflow" in results and results["stackoverflow"].get("results"):
         output += "## Stack Overflow Results\n\n"
         for i, q in enumerate(results["stackoverflow"]["results"][:10], 1):
@@ -101,7 +94,6 @@ def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
             output += f"[🔗 View Question]({q['url']})\n\n"
             output += "---\n\n"
 
-    # Bluesky results
     if "bluesky" in results and results["bluesky"].get("results"):
         output += "## Bluesky Results\n\n"
         for i, post in enumerate(results["bluesky"]["results"][:10], 1):
@@ -118,7 +110,6 @@ def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
                 output += f"[🔗 View Post]({post['url']})\n\n"
             output += "---\n\n"
 
-    # Lobste.rs results
     if "lobsters" in results and results["lobsters"].get("results"):
         output += "## Lobste.rs Results\n\n"
         for i, story in enumerate(results["lobsters"]["results"][:10], 1):
@@ -140,7 +131,6 @@ def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
                 output += f"[💬 Discussion]({story['comments_url']})\n\n"
             output += "---\n\n"
 
-    # Lemmy results
     if "lemmy" in results and results["lemmy"].get("results"):
         output += "## Lemmy Results\n\n"
         for i, post in enumerate(results["lemmy"]["results"][:10], 1):
@@ -236,7 +226,6 @@ def format_github_markdown(query: str, repositories: List[Dict[str, Any]]) -> st
     output += f"**Found {len(repositories)} repositories**\n\n"
     output += "---\n\n"
 
-    # Add workflow hint
     if len(repositories) > 0:
         output += "💡 **Next Steps:**\n"
         output += "- Use `content_operations` to retrieve README files from repo URLs\n"
@@ -280,14 +269,12 @@ def format_academic_search_markdown(results: Dict[str, Any]) -> str:
     papers = results.get("results", [])
     metadata = results.get("metadata", {})
 
-    # Header
     output = f"# 🔬 Academic Search Results for: *{query}*\n\n"
     output += (
         f"**Found {len(papers)} papers** from {', '.join(metadata.get('sources_searched', []))}\n\n"
     )
     output += "---\n\n"
 
-    # Add workflow hint
     if len(papers) > 0:
         output += "💡 **Next Steps:**\n"
         output += "- Use `document_analysis` to extract text from PDF links\n"
@@ -359,7 +346,6 @@ def format_academic_search_markdown(results: Dict[str, Any]) -> str:
 
         output += "---\n\n"
 
-    # Footer
     output += f"*Search completed on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
 
     return output.strip()
@@ -374,7 +360,6 @@ def format_dataset_discovery_markdown(results: Dict[str, Any]) -> str:
     datasets = results.get("datasets", [])
     metadata = results.get("metadata", {})
 
-    # Header
     output = f"# 📊 Dataset Discovery Results for: *{query}*\n\n"
     output += f"**Found {len(datasets)} datasets** from {', '.join(metadata.get('sources_searched', []))}\n\n"
     output += "---\n\n"
@@ -445,7 +430,6 @@ def format_dataset_discovery_markdown(results: Dict[str, Any]) -> str:
 
         output += "---\n\n"
 
-    # Footer
     output += f"*Search completed on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
 
     return output.strip()
@@ -460,7 +444,6 @@ def format_multi_search_markdown(results: Dict[str, Any]) -> str:
     query = results.get("query", results.get("summary", {}).get("query", ""))
     results_data = results.get("results", {})
 
-    # Header
     output = f"# 🔍 Search Results for: *{query}*\n\n"
 
     total_results = 0
@@ -498,7 +481,6 @@ def format_multi_search_markdown(results: Dict[str, Any]) -> str:
 
                 output += "---\n\n"
 
-    # Footer
     output += f"*Search completed on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
 
     return output.strip()
@@ -563,7 +545,6 @@ def format_research_analysis_markdown(results: Dict[str, Any], tool_name: str = 
             elif isinstance(section_data, str) and section_data:
                 output += f"## {section_name.replace('_', ' ').title()}\n\n{section_data}\n\n"
 
-    # Footer
     output += f"*Analysis completed on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
 
     return output.strip()
@@ -579,7 +560,6 @@ def format_traversal_markdown(results: Dict[str, Any]) -> str:
     pages = results.get("pages", [])
     total_pages = results.get("total_pages", 0)
 
-    # Header
     output = f"# 🌐 Website Traversal Results: {url}\n\n"
     output += f"**Mode:** {mode.title()} | **Pages Traversed:** {total_pages}\n\n"
     output += f"{results.get('summary', '')}\n\n"
@@ -608,7 +588,6 @@ def format_traversal_markdown(results: Dict[str, Any]) -> str:
         output += "## 📄 LLMs.txt Generated\n\n"
         output += "A structured documentation file has been generated for LLM consumption.\n\n"
 
-    # Footer
     output += f"*Traversal completed on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
 
     return output.strip()
@@ -699,7 +678,6 @@ def format_trends_markdown(results: Dict[str, Any]) -> str:
                 output += f"\n*Showing first 20 of {len(time_data)} entries*\n"
             output += "\n"
 
-    # Footer
     output += f"*Analysis completed on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
 
     return output.strip()

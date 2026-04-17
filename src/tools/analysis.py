@@ -17,7 +17,6 @@ from src.core.quality import assess_results, summarize_quality
 from src.logging.logger import logger
 from src.utils.markdown_formatter import format_research_analysis_markdown
 
-# ── Enums surfaced to the MCP schema so agents see the exact set ────────────
 ContentOperation = Literal[
     "retrieve",
     "stream",
@@ -162,10 +161,6 @@ def register_analysis_tools(mcp: FastMCP):
                 if not url:
                     raise ToolError("URL required for retrieve operation")
 
-                # Dispatch on extraction_method to the right shared-client
-                # helper. Scrapling's parser handles sites (Wikipedia, etc.)
-                # where the previous BeautifulSoup+custom converter silently
-                # produced empty output.
                 from src.utils.scrapling_client import (
                     fetch_html,
                     fetch_markdown,
@@ -180,7 +175,7 @@ def register_analysis_tools(mcp: FastMCP):
                             result = await fetch_html(url)
                         elif extraction_method == "text":
                             result = await fetch_text(url)
-                        else:  # markdown / auto
+                        else:
                             result = await fetch_markdown(url)
                         if result:
                             break
@@ -198,7 +193,6 @@ def register_analysis_tools(mcp: FastMCP):
             elif operation == "stream":
                 if not url:
                     raise ToolError("URL required for stream operation")
-                # Real streaming implementation with retry logic
                 from src.core.fetch import stream_fetch
 
                 max_retries = 3
@@ -224,7 +218,6 @@ def register_analysis_tools(mcp: FastMCP):
                 if not content:
                     raise ToolError("Content required for analyze operation")
 
-                # Basic content analysis
                 analysis_result = {
                     "content_length": len(content),
                     "word_count": len(content.split()),
@@ -234,7 +227,6 @@ def register_analysis_tools(mcp: FastMCP):
                     "insights": {},
                 }
 
-                # Extract key points if requested
                 if extract_key_points:
                     sentences = re.split(r"[.!?]+", content)
                     sentences = [s.strip() for s in sentences if len(s.strip()) > 30]
@@ -260,7 +252,6 @@ def register_analysis_tools(mcp: FastMCP):
                     key_points = [s[0] for s in scored_sentences[:5]]
                     analysis_result["key_points"] = key_points
 
-                # Create summary if requested
                 if summarize:
                     sentences = re.split(r"[.!?]+", content)
                     sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
@@ -277,7 +268,6 @@ def register_analysis_tools(mcp: FastMCP):
 
                     analysis_result["summary"] = summary
 
-                # Type-specific analysis
                 if analysis_type == "sentiment":
                     positive_words = [
                         "good",
@@ -368,7 +358,6 @@ def register_analysis_tools(mcp: FastMCP):
                             "Content Operations",
                         )
 
-                    # Parse HTML and extract links
                     from bs4 import BeautifulSoup
 
                     soup = BeautifulSoup(str(content), "html.parser")
@@ -381,7 +370,6 @@ def register_analysis_tools(mcp: FastMCP):
 
                     base_domain = urlparse(url).netloc
 
-                    # Extract <a> tags
                     for link in soup.find_all("a", href=True):
                         href = link.get("href", "")
                         if not href or href.startswith("#"):
@@ -403,7 +391,6 @@ def register_analysis_tools(mcp: FastMCP):
                         else:
                             external_links.append(link_info)
 
-                        # Check if it's a document
                         if any(
                             absolute_url.lower().endswith(ext)
                             for ext in [
@@ -419,7 +406,6 @@ def register_analysis_tools(mcp: FastMCP):
                         ):
                             document_links.append(link_info)
 
-                    # Extract images
                     for img in soup.find_all("img", src=True):
                         src = img.get("src", "")
                         absolute_url = urljoin(url, src)
@@ -431,7 +417,6 @@ def register_analysis_tools(mcp: FastMCP):
                             }
                         )
 
-                    # Select links based on link_type
                     if link_type == "internal":
                         selected_links = internal_links
                     elif link_type == "external":
@@ -440,13 +425,11 @@ def register_analysis_tools(mcp: FastMCP):
                         selected_links = image_links
                     elif link_type == "documents":
                         selected_links = document_links
-                    else:  # "all"
+                    else:
                         selected_links = all_links
 
-                    # Limit to max_links
                     selected_links = selected_links[:max_links]
 
-                    # Format result
                     result_summary = f"Extracted {len(selected_links)} {link_type} links from {url}"
                     key_findings = [
                         f"{link.get('text', link.get('alt', 'Link'))}: {link['url']}"
@@ -492,7 +475,6 @@ def register_analysis_tools(mcp: FastMCP):
                 if len(urls) > 50:
                     raise ToolError("score operation accepts at most 50 urls")
 
-                # Align optional metadata
                 md = list(metadata or [])
                 while len(md) < len(urls):
                     md.append({})
@@ -517,8 +499,6 @@ def register_analysis_tools(mcp: FastMCP):
                     "confidence": summary,
                     "status": "success",
                 }
-                # Dual-channel return: LLMs read the markdown (content),
-                # agents parse the raw scores from structured_content.
                 return ToolResult(
                     content=format_research_analysis_markdown(payload, "Content Operations"),
                     structured_content=payload,
@@ -530,18 +510,14 @@ def register_analysis_tools(mcp: FastMCP):
                 if len(urls) > 10:
                     raise ToolError("find_conflicts accepts at most 10 urls per call")
 
-                # Fetch each URL via Scrapling (TLS-fingerprint safe) with
-                # an httpx fallback, extract clean text, cap at 8000 chars
-                # per source so the detector doesn't drown in noise.
+                # Scrapling first for TLS fingerprint, httpx fallback. Cap
+                # at 8000 chars/source so the detector doesn't drown in noise.
                 from scrapling.fetchers import AsyncFetcher
 
                 from src.core.content.extractors import UnifiedContentExtractor
 
                 extractor = UnifiedContentExtractor()
 
-                # Progress: report once per source as it lands. Using a
-                # counter + lock-free increment because asyncio.gather
-                # coroutines run on the same thread in the event loop.
                 fetch_total = len(urls)
                 fetched = 0
 
@@ -649,7 +625,6 @@ def register_analysis_tools(mcp: FastMCP):
                 "Content Operations",
             )
 
-        # This should never be reached, but ensures type safety
         return format_research_analysis_markdown(
             {
                 "topic": "Content Operations",
@@ -667,10 +642,6 @@ def register_analysis_tools(mcp: FastMCP):
             "destructiveHint": False,
             "idempotentHint": False,
         },
-        # Entity mode fans out to up to 8 sub-sources in parallel, each
-        # with its own ~30s HTTP timeout. Topic mode is faster but also
-        # chains search + per-result content fetch. 180s is a generous
-        # ceiling -- the real constraint is each sub-source's own budget.
         timeout=180.0,
     )
     async def research_topic(
@@ -794,10 +765,7 @@ async def _run_topic_mode(
     include_analysis: bool,
     session_id: Optional[str],
 ) -> str:
-    """Topic research: search + fetch + extract key findings, with
-    automatic quality scoring and optional session memory. Routes
-    through the shared Scrapling client so Cloudflare/Akamai-fronted
-    sites respond 200 instead of 403."""
+    """Topic research: search + fetch + extract key findings."""
     from src.utils.scrapling_client import fetch_text
 
     logger.info("Starting comprehensive research on: %s", topic)
@@ -814,11 +782,6 @@ async def _run_topic_mode(
     sources_researched: List[Dict[str, Any]] = []
     key_findings: List[str] = []
 
-    # Relevance-weighted sentence selection:
-    # the longer the sentence AND the more query tokens it contains,
-    # the more it contributes to the score. Replaces the old keyword-gated
-    # filter that missed substantive sentences lacking the exact words
-    # "important / key / critical / significant".
     query_tokens = {t.lower() for t in re.findall(r"[A-Za-z][A-Za-z0-9]{2,}", topic)}
 
     def _rank_sentence(s: str) -> float:
@@ -826,10 +789,9 @@ async def _run_topic_mode(
             return 0.0
         lower = s.lower()
         tok_hits = sum(1 for t in query_tokens if t in lower) if query_tokens else 0
-        # Density-ish signal: hits × log(length).
         import math
 
-        length_score = math.log10(max(1, len(s)) + 1) - 1.5  # 0 at ~30 chars
+        length_score = math.log10(max(1, len(s)) + 1) - 1.5
         return max(0.0, length_score) * (1 + 0.5 * tok_hits)
 
     for source_url in sources:
@@ -856,7 +818,6 @@ async def _run_topic_mode(
         except Exception as e:
             logger.warning("Failed to retrieve content from %s: %s", source_url, e)
 
-    # Auto-attach quality + aggregate confidence.
     scored = assess_results(sources_researched)
     confidence = summarize_quality(scored)
 
@@ -888,9 +849,7 @@ async def _run_topic_mode(
 
 
 async def _report(ctx: Optional[Context], progress: float, total: float, message: str) -> None:
-    """Best-effort progress reporter. Silent if no context is bound or the
-    client doesn't care. Keeps phase-boundary calls from having to repeat
-    the same try/except boilerplate."""
+    """Best-effort progress reporter; silent if no ctx is bound."""
     if ctx is None:
         return
     try:
@@ -950,9 +909,6 @@ async def _run_entity_mode(
     except Exception as e:
         logger.debug("github fan-out skipped: %s", e)
 
-    # 4 phases: fan-out, normalize, score, aggregate. Reported on a 0-100
-    # scale so clients can render a consistent bar regardless of how many
-    # sub-sources ran this time.
     await _report(ctx, 10, 100, f"fanning out to {len(tasks)} sources")
 
     names = list(tasks.keys())
@@ -1017,7 +973,6 @@ async def _run_entity_mode(
     for key in list(sections.keys()):
         sections[key] = assess_results(sections[key])[:max_sources]
 
-    # Aggregate confidence across the union
     union = [it for items in sections.values() for it in items]
     union_annotated = assess_results(
         [{k: v for k, v in it.items() if k != "quality"} for it in union]
@@ -1026,7 +981,6 @@ async def _run_entity_mode(
 
     await _report(ctx, 90, 100, "aggregating confidence")
 
-    # Flatten for auto-save
     flat_findings: List[Dict[str, Any]] = []
     for section_name, items in sections.items():
         for it in items:
@@ -1036,7 +990,6 @@ async def _run_entity_mode(
     await _auto_save(session_id, flat_findings)
     await _report(ctx, 100, 100, "done")
 
-    # Render a structured multi-section report
     md = f"# 🗺️ Entity Profile: *{entity}*\n\n"
     badge = {"high": "🟢", "medium": "🟡", "low": "🔴", "none": "⚪"}.get(
         confidence["confidence"], "⚪"

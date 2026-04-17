@@ -40,9 +40,9 @@ uv run --with fastmcp python scripts/cli.py call-tool scientific_research --oper
 
 ### Operations
 
-**academic_search** — Search papers across Semantic Scholar, arXiv, PubMed:
+**academic_search** — Search papers across OpenAlex, CrossRef, arXiv, PubMed, Europe PMC:
 ```bash
-python scripts/cli.py call-tool scientific_research --operation academic_search --query "transformer attention mechanisms" --sources '["arxiv", "semantic_scholar"]'
+python scripts/cli.py call-tool scientific_research --operation academic_search --query "transformer attention mechanisms" --sources '["openalex", "arxiv"]'
 ```
 
 **dataset_discovery** — Find datasets on Kaggle, HuggingFace:
