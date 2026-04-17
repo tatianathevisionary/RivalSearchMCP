@@ -21,9 +21,11 @@ from src.prompts import register_prompts
 # Import custom routes
 from src.routes.routes import register_custom_routes
 from src.tools.analysis import register_analysis_tools
+from src.tools.entity import register_entity_tools
 from src.tools.github_tool import register_github_tools
 from src.tools.news import register_news_tools
 from src.tools.pdf_tool import register_pdf_tools
+from src.tools.quality import register_quality_tools
 
 # from src.tools.trends import register_trends_tools  # REMOVED - Google rate limits
 from src.tools.research import register_research_tools
@@ -129,6 +131,8 @@ register_social_media_tools(app)
 register_news_tools(app)
 register_github_tools(app)
 register_pdf_tools(app)
+register_quality_tools(app)
+register_entity_tools(app)
 # OCR functionality is integrated into retrieval tools - no separate registration needed
 
 # Register prompts
