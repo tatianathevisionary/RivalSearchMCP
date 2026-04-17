@@ -1,108 +1,183 @@
 """
-Medium article search implementation using RSS feeds and public API.
-No authentication required for reading public articles.
+Medium search implementation using public RSS feeds.
+
+Medium has no anonymous search API. We approximate search by:
+
+1. Fetching Medium's tag RSS feed (`/feed/tag/<slug>`). Slugs are derived
+   from the query with plausible variants so "Artificial Intelligence"
+   hits `/feed/tag/artificial-intelligence`.
+2. If the tag feed is empty or 404s, falling back to Medium's topic
+   feed (`/feed/topic/<slug>`) and then to an HTML scrape of
+   `/search?q=<query>` as a last resort.
+
+RSS `summary` fields contain raw HTML (images, linked byline, etc.) --
+we strip it with BeautifulSoup so consumers get clean text excerpts
+rather than unreadable markup blobs.
 """
 
-from typing import Any, Dict, List
-from urllib.parse import quote_plus
+import re
+from typing import Any, Dict, List, Optional
 
 import feedparser
 import httpx
+from bs4 import BeautifulSoup
 
 from src.logging.logger import logger
 
+_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _candidate_slugs(query: str) -> List[str]:
+    """Medium tag slugs are lowercase hyphenated (artificial-intelligence,
+    machine-learning) or solid (ai, ml). Produce both forms."""
+    q = (query or "").strip().lower()
+    if not q:
+        return []
+    slugs: List[str] = []
+    hyphen = _SLUG_RE.sub("-", q).strip("-")
+    if hyphen:
+        slugs.append(hyphen)
+    solid = _SLUG_RE.sub("", q)
+    if solid and solid != hyphen:
+        slugs.append(solid)
+    tokens = [t for t in _SLUG_RE.split(q) if t]
+    if len(tokens) > 1 and tokens[0] not in slugs:
+        slugs.append(tokens[0])
+    return slugs
+
+
+def _clean_excerpt(html: str, max_chars: int = 280) -> str:
+    """Strip HTML from an RSS summary to a plain-text excerpt."""
+    if not html:
+        return ""
+    text = BeautifulSoup(html, "html.parser").get_text(" ", strip=True)
+    text = re.sub(r"\s+", " ", text)
+    if len(text) > max_chars:
+        text = text[: max_chars - 1].rstrip() + "…"
+    return text
+
+
+def _format_entry(entry: Any) -> Dict[str, Any]:
+    return {
+        "title": entry.get("title", ""),
+        "url": entry.get("link", ""),
+        "author": entry.get("author", "") or entry.get("dc_creator", ""),
+        "published": entry.get("published", ""),
+        "summary": _clean_excerpt(entry.get("summary", "")),
+        "source": "medium",
+    }
+
 
 class MediumSearch:
-    """Search Medium articles using RSS feeds and public endpoints."""
+    """Search Medium articles via public RSS feeds."""
 
     def __init__(self):
         self.base_url = "https://medium.com"
-        self.feed_url = "https://medium.com/feed"
+        self.headers = {
+            "User-Agent": (
+                "rivalsearchmcp/1.0 (+https://github.com/damionrashford/RivalSearchMCP)"
+            ),
+            "Accept": "application/rss+xml, application/xml, text/xml, */*",
+        }
 
-    async def search(self, query: str, tag: str = None, limit: int = 10) -> List[Dict[str, Any]]:
-        """
-        Search Medium articles.
+    async def search(
+        self,
+        query: str,
+        tag: Optional[str] = None,
+        limit: int = 10,
+    ) -> List[Dict[str, Any]]:
+        results: List[Dict[str, Any]] = []
+        seen_urls: set = set()
 
-        Args:
-            query: Search query
-            tag: Optional tag to filter by
-            limit: Maximum results
+        slugs: List[str] = []
+        if tag:
+            slugs.append(tag.strip().lower().replace(" ", "-"))
+        slugs.extend(_candidate_slugs(query))
+        slugs = list(dict.fromkeys(slugs))  # dedupe, preserve order
 
-        Returns:
-            List of Medium article dictionaries
-        """
-        try:
-            articles = []
-
-            # Strategy 1: Use tag-based RSS feeds
-            if tag:
-                feed_url = f"{self.base_url}/feed/tag/{tag}"
-            else:
-                feed_url = f"{self.base_url}/feed/tag/{query.lower().replace(' ', '-')}"
-
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-            }
-
-            async with httpx.AsyncClient(headers=headers, timeout=30.0) as client:
-                # Try RSS feed first
+        async with httpx.AsyncClient(
+            headers=self.headers, timeout=30.0, follow_redirects=True
+        ) as client:
+            # Phase 1: tag feeds
+            for slug in slugs:
+                if len(results) >= limit:
+                    break
+                feed_url = f"{self.base_url}/feed/tag/{slug}"
                 try:
-                    response = await client.get(feed_url)
+                    r = await client.get(feed_url)
+                    if r.status_code != 200:
+                        logger.debug("Medium /feed/tag/%s returned %s", slug, r.status_code)
+                        continue
+                    feed = feedparser.parse(r.text)
+                    for entry in feed.entries:
+                        if len(results) >= limit:
+                            break
+                        url = entry.get("link", "")
+                        if not url or url in seen_urls:
+                            continue
+                        seen_urls.add(url)
+                        results.append(_format_entry(entry))
+                except httpx.HTTPError as e:
+                    logger.warning("Medium /feed/tag/%s failed: %s", slug, e)
 
-                    if response.status_code == 200:
-                        feed = feedparser.parse(response.text)
+            # Phase 2: topic feeds (broader than tags for general queries)
+            if len(results) < limit:
+                for slug in slugs:
+                    if len(results) >= limit:
+                        break
+                    topic_url = f"{self.base_url}/feed/topic/{slug}"
+                    try:
+                        r = await client.get(topic_url)
+                        if r.status_code != 200:
+                            continue
+                        feed = feedparser.parse(r.text)
+                        for entry in feed.entries:
+                            if len(results) >= limit:
+                                break
+                            url = entry.get("link", "")
+                            if not url or url in seen_urls:
+                                continue
+                            seen_urls.add(url)
+                            results.append(_format_entry(entry))
+                    except httpx.HTTPError:
+                        continue
 
-                        for entry in feed.entries[:limit]:
-                            articles.append(
-                                {
-                                    "title": entry.get("title", ""),
-                                    "url": entry.get("link", ""),
-                                    "author": entry.get("author", ""),
-                                    "published": entry.get("published", ""),
-                                    "summary": entry.get("summary", "")[:300],
-                                    "source": "medium",
-                                }
-                            )
-                except Exception as rss_error:
-                    logger.debug(f"RSS feed failed, trying HTML: {rss_error}")
-
-                # Fallback: Parse search results HTML
-                if not articles:
-                    search_url = f"{self.base_url}/search?q={quote_plus(query)}"
-                    response = await client.get(search_url)
-
-                    from bs4 import BeautifulSoup
-
-                    soup = BeautifulSoup(response.text, "html.parser")
-
-                    # Extract article links and titles
-                    article_links = soup.find_all(
-                        "a", href=lambda h: h and ("/p/" in h or "/@" in h)
+            # Phase 3: HTML search scrape as a last resort
+            if not results:
+                try:
+                    r = await client.get(
+                        f"{self.base_url}/search",
+                        params={"q": query},
                     )
-
-                    for link in article_links[:limit]:
-                        title = link.get_text(strip=True)
-                        href = link.get("href", "")
-
-                        if title and href and len(title) > 10:
-                            articles.append(
+                    if r.status_code == 200:
+                        soup = BeautifulSoup(r.text, "html.parser")
+                        for link in soup.find_all(
+                            "a", href=lambda h: h and ("/p/" in h or "/@" in h)
+                        ):
+                            if len(results) >= limit:
+                                break
+                            title = link.get_text(strip=True)
+                            href = link.get("href", "")
+                            if not title or len(title) < 10 or not href:
+                                continue
+                            url = href if href.startswith("http") else f"{self.base_url}{href}"
+                            if url in seen_urls:
+                                continue
+                            seen_urls.add(url)
+                            results.append(
                                 {
                                     "title": title,
-                                    "url": (
-                                        href
-                                        if href.startswith("http")
-                                        else f"{self.base_url}{href}"
-                                    ),
+                                    "url": url,
                                     "author": "",
                                     "published": "",
                                     "summary": "",
                                     "source": "medium",
                                 }
                             )
+                    else:
+                        logger.warning("Medium /search returned %s for %r", r.status_code, query)
+                except httpx.HTTPError as e:
+                    logger.warning("Medium /search fallback failed: %s", e)
 
-                logger.info(f"Found {len(articles)} Medium articles for: {query}")
-                return articles[:limit]
-
-        except Exception as e:
-            logger.error(f"Medium search failed: {e}")
-            return []
+        logger.info("Found %d Medium articles for %r", len(results), query)
+        return results[:limit]

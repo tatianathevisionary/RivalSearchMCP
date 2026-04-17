@@ -1,103 +1,106 @@
 """
-Product Hunt search implementation using public GraphQL API.
-No authentication required for reading public posts.
+Product Hunt search via the public RSS feed.
+
+Product Hunt offers no anonymous search API. Their GraphQL endpoint
+(`/frontend/graphql`) is fronted by Cloudflare which challenges
+non-browser TLS fingerprints, and their search page is a Next.js SPA
+that hydrates results client-side (HTML alone is just a skeleton).
+
+The RSS feed at `/feed` is public, cacheable, and returns the latest
+~50 launched products with titles and taglines. We fetch it and
+filter client-side against the query. This is "latest products that
+mention your query" rather than true search, but it's the strongest
+signal available without a headless browser or a paid token.
+
+When the query matches nothing, we return the latest products
+unfiltered so callers still get a useful discovery feed.
 """
 
+import re
 from typing import Any, Dict, List
 
+import feedparser
 import httpx
 
 from src.logging.logger import logger
 
 
+def _clean(text: str) -> str:
+    """Strip HTML and collapse whitespace."""
+    if not text:
+        return ""
+    # Strip HTML tags without pulling in a full parser for RSS tagline text
+    clean = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", clean).strip()
+
+
+def _matches(entry: Dict[str, str], query: str) -> bool:
+    """Case-insensitive substring match across title and summary/tagline."""
+    if not query:
+        return True
+    q = query.lower()
+    haystack = (entry.get("title", "") + " " + entry.get("tagline", "")).lower()
+    return q in haystack
+
+
 class ProductHuntSearch:
-    """Search Product Hunt without authentication."""
+    """Query Product Hunt's public RSS feed."""
 
     def __init__(self):
-        self.api_url = "https://www.producthunt.com/frontend/graphql"
         self.base_url = "https://www.producthunt.com"
-
-    async def search(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """
-        Search Product Hunt posts.
-
-        Args:
-            query: Search query
-            limit: Maximum results
-
-        Returns:
-            List of Product Hunt post dictionaries
-        """
-        from urllib.parse import quote_plus
-
-        url = f"https://www.producthunt.com/search/posts?q={quote_plus(query)}"
-        headers = {
+        self.feed_url = "https://www.producthunt.com/feed"
+        self.headers = {
             "User-Agent": (
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/131.0.0.0 Safari/537.36"
+                "rivalsearchmcp/1.0 (+https://github.com/damionrashford/RivalSearchMCP)"
             ),
-            "Accept": "text/html,application/xhtml+xml",
+            "Accept": "application/rss+xml, application/xml, text/xml, */*",
         }
 
+    async def search(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         try:
             async with httpx.AsyncClient(
-                headers=headers, timeout=30.0, follow_redirects=True
+                headers=self.headers, timeout=30.0, follow_redirects=True
             ) as client:
-                response = await client.get(url)
+                response = await client.get(self.feed_url)
                 if response.status_code != 200:
                     logger.warning(
-                        "Product Hunt returned %s for %r (body snippet: %s)",
+                        "Product Hunt /feed returned %s for %r (body snippet: %s)",
                         response.status_code,
                         query,
                         response.text[:200],
                     )
                     return []
 
-                from bs4 import BeautifulSoup
+                feed = feedparser.parse(response.text)
+                entries: List[Dict[str, Any]] = []
+                for entry in feed.entries:
+                    item = {
+                        "title": entry.get("title", ""),
+                        "url": entry.get("link", ""),
+                        "tagline": _clean(entry.get("summary", "")),
+                        "published": entry.get("published", ""),
+                        "author": entry.get("author", ""),
+                        "source": "producthunt",
+                    }
+                    entries.append(item)
 
-                soup = BeautifulSoup(response.text, "html.parser")
-                products = []
+                # Prefer query matches; fall back to latest when nothing matches
+                matched = [e for e in entries if _matches(e, query)]
+                results = matched if matched else entries
 
-                # Try the structured selector first, then fall back to any
-                # /posts/ link. Product Hunt renders via React so selectors
-                # shift — this is best-effort scraping.
-                product_elements = soup.find_all("div", attrs={"data-test": "post-item"})
-                if not product_elements:
-                    links = soup.find_all("a", href=lambda h: h and "/posts/" in h)
-                    seen = set()
-                    for link in links:
-                        if len(products) >= limit:
-                            break
-                        title = link.get_text(strip=True)
-                        href = link.get("href", "")
-                        if not title or not href or href in seen:
-                            continue
-                        seen.add(href)
-                        products.append(
-                            {
-                                "title": title,
-                                "url": (
-                                    href if href.startswith("http") else f"{self.base_url}{href}"
-                                ),
-                                "tagline": "",
-                                "votes": 0,
-                                "source": "producthunt",
-                            }
-                        )
-
-                if not products:
-                    logger.warning(
-                        "Product Hunt page parsed but no products extracted "
-                        "for %r (selectors may be stale)",
+                if not matched and query:
+                    logger.info(
+                        "Product Hunt: 0 matches for %r in latest %d — "
+                        "returning recent launches as discovery feed",
                         query,
+                        len(entries),
                     )
                 else:
-                    logger.info("Found %d Product Hunt posts for %r", len(products), query)
-                return products[:limit]
+                    logger.info("Found %d Product Hunt posts for %r", len(matched), query)
+                return results[:limit]
 
         except httpx.HTTPError as e:
-            logger.warning("Product Hunt search failed (network): %s", e)
+            logger.warning("Product Hunt /feed network error: %s", e)
             return []
         except Exception:
             logger.exception("Product Hunt search failed (unexpected)")
