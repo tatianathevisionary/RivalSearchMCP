@@ -28,52 +28,77 @@ class ProductHuntSearch:
         Returns:
             List of Product Hunt post dictionaries
         """
+        from urllib.parse import quote_plus
+
+        url = f"https://www.producthunt.com/search/posts?q={quote_plus(query)}"
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/131.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml",
+        }
+
         try:
-            # Use Product Hunt's search endpoint (simplified approach)
-            # Since GraphQL requires more setup, we'll use RSS feed
-            url = f"https://www.producthunt.com/search/posts?q={query}"
-
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-            }
-
-            async with httpx.AsyncClient(headers=headers, timeout=30.0) as client:
+            async with httpx.AsyncClient(
+                headers=headers, timeout=30.0, follow_redirects=True
+            ) as client:
                 response = await client.get(url)
-                response.raise_for_status()
+                if response.status_code != 200:
+                    logger.warning(
+                        "Product Hunt returned %s for %r (body snippet: %s)",
+                        response.status_code,
+                        query,
+                        response.text[:200],
+                    )
+                    return []
 
-                # Parse HTML for product information
                 from bs4 import BeautifulSoup
 
                 soup = BeautifulSoup(response.text, "html.parser")
-
                 products = []
-                # Product Hunt uses complex structure, extract what we can
-                product_elements = soup.find_all("div", attrs={"data-test": "post-item"})
 
+                # Try the structured selector first, then fall back to any
+                # /posts/ link. Product Hunt renders via React so selectors
+                # shift — this is best-effort scraping.
+                product_elements = soup.find_all("div", attrs={"data-test": "post-item"})
                 if not product_elements:
-                    # Fallback: look for links to posts
                     links = soup.find_all("a", href=lambda h: h and "/posts/" in h)
-                    for link in links[:limit]:
+                    seen = set()
+                    for link in links:
+                        if len(products) >= limit:
+                            break
                         title = link.get_text(strip=True)
                         href = link.get("href", "")
-                        if title and href:
-                            products.append(
-                                {
-                                    "title": title,
-                                    "url": (
-                                        f"{self.base_url}{href}"
-                                        if not href.startswith("http")
-                                        else href
-                                    ),
-                                    "tagline": "",
-                                    "votes": 0,
-                                    "source": "producthunt",
-                                }
-                            )
+                        if not title or not href or href in seen:
+                            continue
+                        seen.add(href)
+                        products.append(
+                            {
+                                "title": title,
+                                "url": (
+                                    href if href.startswith("http") else f"{self.base_url}{href}"
+                                ),
+                                "tagline": "",
+                                "votes": 0,
+                                "source": "producthunt",
+                            }
+                        )
 
-                logger.info(f"Found {len(products)} Product Hunt posts for: {query}")
+                if not products:
+                    logger.warning(
+                        "Product Hunt page parsed but no products extracted "
+                        "for %r (selectors may be stale)",
+                        query,
+                    )
+                else:
+                    logger.info("Found %d Product Hunt posts for %r", len(products), query)
                 return products[:limit]
 
-        except Exception as e:
-            logger.error(f"Product Hunt search failed: {e}")
+        except httpx.HTTPError as e:
+            logger.warning("Product Hunt search failed (network): %s", e)
+            return []
+        except Exception:
+            logger.exception("Product Hunt search failed (unexpected)")
             return []
