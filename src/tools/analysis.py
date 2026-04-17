@@ -5,12 +5,29 @@ Handles content analysis and end-to-end research workflows.
 
 import asyncio
 import re
-from typing import List, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from fastmcp import FastMCP
+from pydantic import Field
 
+from src.core.conflict import find_conflicts as _find_conflicts_core
+from src.core.quality import assess_results, summarize_quality
 from src.logging.logger import logger
 from src.utils.markdown_formatter import format_research_analysis_markdown
+
+# ── Enums surfaced to the MCP schema so agents see the exact set ────────────
+ContentOperation = Literal[
+    "retrieve",
+    "stream",
+    "analyze",
+    "extract",
+    "score",
+    "find_conflicts",
+]
+ExtractionMethod = Literal["auto", "html", "text", "markdown"]
+AnalysisType = Literal["general", "sentiment", "technical", "business"]
+LinkType = Literal["all", "internal", "external", "images", "documents"]
+ResearchMode = Literal["topic", "entity"]
 
 
 def register_analysis_tools(mcp: FastMCP):
@@ -18,31 +35,113 @@ def register_analysis_tools(mcp: FastMCP):
 
     @mcp.tool
     async def content_operations(
-        operation: str,
-        url: Optional[str] = None,
-        content: Optional[str] = None,
-        extraction_method: str = "auto",
-        analysis_type: str = "general",
-        max_links: int = 100,
-        link_type: str = "all",
-        extract_key_points: bool = True,
-        summarize: bool = True,
-        include_metadata: bool = True,
+        operation: Annotated[
+            ContentOperation,
+            Field(
+                description=(
+                    "What to do:\n"
+                    "  retrieve       - fetch `url` and return its text/html/markdown\n"
+                    "  stream         - stream-fetch `url`\n"
+                    "  analyze        - analyze `content` for key points / sentiment\n"
+                    "  extract        - extract links from `url`\n"
+                    "  score          - rate `urls` on quality signals\n"
+                    "  find_conflicts - compare `urls` for numeric / date / polarity disagreements"
+                ),
+            ),
+        ],
+        url: Annotated[
+            Optional[str],
+            Field(
+                description="Single URL for retrieve / stream / extract.",
+                default=None,
+            ),
+        ] = None,
+        urls: Annotated[
+            Optional[List[str]],
+            Field(
+                description=(
+                    "List of URLs for score (≤50) or find_conflicts (2-10). "
+                    "Ignored for single-URL operations."
+                ),
+                default=None,
+            ),
+        ] = None,
+        content: Annotated[
+            Optional[str],
+            Field(
+                description="Content body for `analyze` operation.",
+                default=None,
+            ),
+        ] = None,
+        claim: Annotated[
+            Optional[str],
+            Field(
+                description=(
+                    "find_conflicts only: a specific claim to check for "
+                    "support vs contradiction across `urls` (e.g. 'the "
+                    "vaccine is safe')."
+                ),
+                default=None,
+            ),
+        ] = None,
+        metadata: Annotated[
+            Optional[List[Dict[str, Any]]],
+            Field(
+                description=(
+                    "score only: per-URL metadata aligned with `urls` "
+                    "(title, published, citationCount, etc.) to sharpen "
+                    "the freshness and corroboration signals."
+                ),
+                default=None,
+            ),
+        ] = None,
+        extraction_method: Annotated[
+            ExtractionMethod,
+            Field(
+                description="retrieve only: output format.",
+                default="auto",
+            ),
+        ] = "auto",
+        analysis_type: Annotated[
+            AnalysisType,
+            Field(description="analyze only: analysis focus.", default="general"),
+        ] = "general",
+        max_links: Annotated[
+            int,
+            Field(description="extract only: max links returned.", default=100, ge=1, le=500),
+        ] = 100,
+        link_type: Annotated[
+            LinkType,
+            Field(description="extract only: which link category.", default="all"),
+        ] = "all",
+        extract_key_points: Annotated[
+            bool,
+            Field(description="analyze only: extract key points.", default=True),
+        ] = True,
+        summarize: Annotated[
+            bool,
+            Field(description="analyze only: produce a summary.", default=True),
+        ] = True,
+        include_metadata: Annotated[
+            bool,
+            Field(description="Include metadata in the response.", default=True),
+        ] = True,
     ) -> str:
         """
-        Consolidated content operations: retrieve, stream, analyze, extract.
+        One tool for every URL/content-level operation. Pick `operation`,
+        provide whichever of `url`, `urls`, `content` that operation
+        needs, and leave the rest defaulted. Parameter annotations above
+        (visible in the MCP schema) state which operation each parameter
+        applies to.
 
-        Args:
-            operation: Operation type - "retrieve", "stream", "analyze", "extract"
-            url: URL for retrieve/stream/extract operations
-            content: Content for analyze operation
-            extraction_method: For retrieve - "auto", "html", "text", "markdown"
-            analysis_type: For analyze - "general", "sentiment", "technical", "business"
-            max_links: For extract - maximum links to extract
-            link_type: For extract - "all", "internal", "external", "images", "documents"
-            extract_key_points: For analyze - extract key points
-            summarize: For analyze - create summary
-            include_metadata: Include metadata in response
+        Quick map of operation -> required inputs:
+
+          retrieve       url
+          stream         url
+          analyze        content
+          extract        url
+          score          urls              (optionally metadata)
+          find_conflicts urls              (optionally claim)
         """
         try:
             logger.info(f"Performing {operation} operation")
@@ -371,6 +470,116 @@ def register_analysis_tools(mcp: FastMCP):
                         "Content Operations",
                     )
 
+            elif operation == "score":
+                if not urls:
+                    raise ValueError("urls list required for score operation")
+                if len(urls) > 50:
+                    raise ValueError("score operation accepts at most 50 urls")
+
+                # Align optional metadata
+                md = list(metadata or [])
+                while len(md) < len(urls):
+                    md.append({})
+                seeded = [{"url": u, **(m or {})} for u, m in zip(urls, md)]
+                annotated = assess_results(seeded)
+                summary = summarize_quality(annotated)
+
+                findings = [
+                    f"{r['quality']['score']}/100 ({r['quality']['tier']}) — {r['url']}"
+                    for r in annotated
+                ]
+                return format_research_analysis_markdown(
+                    {
+                        "topic": "Source Quality Scores",
+                        "summary": (
+                            f"Confidence {summary['confidence']} · "
+                            f"mean {summary['mean_score']}/100 · "
+                            f"{summary['independent_domains']} independent domains across "
+                            f"{summary['result_count']} sources"
+                        ),
+                        "key_findings": findings,
+                        "quality_details": [{"url": r["url"], **r["quality"]} for r in annotated],
+                        "confidence": summary,
+                        "status": "success",
+                    },
+                    "Content Operations",
+                )
+
+            elif operation == "find_conflicts":
+                if not urls or len(urls) < 2:
+                    raise ValueError("find_conflicts requires a list of at least 2 urls")
+                if len(urls) > 10:
+                    raise ValueError("find_conflicts accepts at most 10 urls per call")
+
+                # Fetch each URL via Scrapling (TLS-fingerprint safe) with
+                # an httpx fallback, extract clean text, cap at 8000 chars
+                # per source so the detector doesn't drown in noise.
+                from scrapling.fetchers import AsyncFetcher
+
+                from src.core.content.extractors import UnifiedContentExtractor
+
+                extractor = UnifiedContentExtractor()
+
+                async def _snippet(target_url: str) -> str:
+                    try:
+                        page = await AsyncFetcher.get(target_url, stealthy_headers=True, timeout=20)
+                        if page.status == 200 and page.body:
+                            text = page.text or page.body.decode("utf-8", "replace")
+                            return extractor.extract(text)[:8000]
+                    except Exception as e:
+                        logger.debug(
+                            "find_conflicts Scrapling fetch failed for %s: %s",
+                            target_url,
+                            e,
+                        )
+                    try:
+                        import httpx
+
+                        async with httpx.AsyncClient(
+                            timeout=20.0,
+                            follow_redirects=True,
+                            headers={"User-Agent": "rivalsearchmcp/1.0"},
+                        ) as client:
+                            r = await client.get(target_url)
+                            if r.status_code == 200:
+                                return extractor.extract(r.text)[:8000]
+                    except Exception as e:
+                        logger.warning("find_conflicts fetch failed for %s: %s", target_url, e)
+                    return ""
+
+                snippets = await asyncio.gather(*[_snippet(u) for u in urls])
+                report = _find_conflicts_core([s for s in snippets], claim=claim)
+
+                findings: List[str] = []
+                for c in report.conflicts:
+                    findings.append(
+                        f"[{c.type.value}] {c.topic} — "
+                        f"{c.value_a} (src {c.source_a_index}) vs "
+                        f"{c.value_b} (src {c.source_b_index}) — confidence {c.confidence:.0%}"
+                    )
+                if not findings:
+                    findings = ["No conflicts detected across the provided sources."]
+
+                return format_research_analysis_markdown(
+                    {
+                        "topic": (
+                            f"Conflict Analysis ({len(urls)} sources)"
+                            + (f" — claim: {claim!r}" if claim else "")
+                        ),
+                        "summary": (
+                            f"{len(report.conflicts)} disagreement(s) detected "
+                            f"across {len(urls)} sources. "
+                            f"{len(report.agreements)} agreement record(s)."
+                        ),
+                        "key_findings": findings,
+                        "sources": [{"title": url, "url": url} for url in urls],
+                        "conflicts": [c.as_dict() for c in report.conflicts],
+                        "agreements": report.agreements,
+                        "status": "success",
+                    },
+                    "Content Operations",
+                )
+
             else:
                 raise ValueError(f"Unknown operation: {operation}")
 
@@ -393,118 +602,375 @@ def register_analysis_tools(mcp: FastMCP):
 
     @mcp.tool
     async def research_topic(
-        topic: str,
-        sources: Optional[List[str]] = None,
-        max_sources: int = 5,
-        include_analysis: bool = True,
+        topic: Annotated[
+            str,
+            Field(
+                description=(
+                    "Subject of the research. A topic or question in "
+                    "`topic` mode (e.g. 'transformer attention'); an "
+                    "entity name in `entity` mode (e.g. 'OpenAI', "
+                    "'FastMCP', 'Linus Torvalds')."
+                ),
+                min_length=2,
+                max_length=300,
+            ),
+        ],
+        mode: Annotated[
+            ResearchMode,
+            Field(
+                description=(
+                    "topic  - search + fetch + extract findings from top sources.\n"
+                    "entity - profile a named entity by fanning out across "
+                    "web, news, GitHub, social, and academic sources in "
+                    "parallel. Returns a unified multi-section report."
+                ),
+                default="topic",
+            ),
+        ] = "topic",
+        sources: Annotated[
+            Optional[List[str]],
+            Field(
+                description=(
+                    "topic mode only: override the search step with these "
+                    "specific URLs. Ignored in entity mode."
+                ),
+                default=None,
+            ),
+        ] = None,
+        max_sources: Annotated[
+            int,
+            Field(
+                description="Upper bound on sources per section.",
+                ge=1,
+                le=20,
+                default=5,
+            ),
+        ] = 5,
+        include_analysis: Annotated[
+            bool,
+            Field(
+                description=(
+                    "topic mode only: run key-findings extraction on " "retrieved content."
+                ),
+                default=True,
+            ),
+        ] = True,
+        session_id: Annotated[
+            Optional[str],
+            Field(
+                description=(
+                    "If provided, findings are appended to the research "
+                    "memory session with this id (see research_memory). "
+                    "Enables iterative research across calls."
+                ),
+                default=None,
+            ),
+        ] = None,
     ) -> str:
         """
-        End-to-end research workflow for a topic.
+        End-to-end deterministic research workflow. One tool, two modes:
 
-        Args:
-            topic: Research topic
-            sources: Optional list of specific sources to use
-            max_sources: Maximum number of sources to research
-            include_analysis: Whether to include content analysis
+          topic  - open-ended search + fetch + extract
+          entity - unified cross-source profile of a named entity
+
+        Both modes auto-attach per-result quality scores and an aggregate
+        confidence signal so callers can calibrate trust. When `session_id`
+        is given, results are appended to research memory automatically.
         """
         try:
-            logger.info(f"Starting comprehensive research on: {topic}")
-
-            # Real research workflow implementation
-            from src.core.fetch import base_fetch_url
-
-            research_results = {
-                "topic": topic,
-                "sources_researched": [],
-                "key_findings": [],
-                "summary": "",
-                "recommendations": [],
-            }
-
-            # Step 1: Search for relevant sources
-            if not sources:
-                from src.core.search.engines.duckduckgo.duckduckgo_engine import (
-                    DuckDuckGoSearchEngine,
-                )
-
-                duckduckgo_engine = DuckDuckGoSearchEngine()
-                search_results = await duckduckgo_engine.search(
-                    query=topic, num_results=max_sources
-                )
-                sources = [result.url for result in search_results[:max_sources]]
-
-            # Step 2: Retrieve content from sources
-            for i, source_url in enumerate(sources):
-                try:
-                    content = await base_fetch_url(source_url)
-                    if content:
-                        # Clean content
-                        from src.utils import clean_html_to_markdown
-
-                        clean_content = clean_html_to_markdown(str(content), source_url)
-
-                        research_results["sources_researched"].append(
-                            {
-                                "url": source_url,
-                                "content": clean_content,
-                                "content_length": len(clean_content),
-                            }
-                        )
-
-                        # Extract key findings from this source
-                        sentences = re.split(r"[.!?]+", clean_content)
-                        key_sentences = [
-                            s.strip()
-                            for s in sentences
-                            if len(s.strip()) > 50
-                            and any(
-                                word in s.lower()
-                                for word in [
-                                    "important",
-                                    "key",
-                                    "critical",
-                                    "significant",
-                                ]
-                            )
-                        ]
-                        research_results["key_findings"].extend(key_sentences[:3])
-
-                except Exception as e:
-                    logger.warning(f"Failed to retrieve content from {source_url}: {e}")
-
-            # Step 3: Generate summary and recommendations
-            if research_results["key_findings"]:
-                research_results["summary"] = (
-                    f"Research on '{topic}' found {len(research_results['sources_researched'])} relevant sources with {len(research_results['key_findings'])} key findings."
-                )
-
-                # Generate recommendations based on findings
-                if len(research_results["sources_researched"]) > 2:
-                    research_results["recommendations"].append(
-                        "Multiple sources confirm findings - high confidence"
-                    )
-                if len(research_results["key_findings"]) > 5:
-                    research_results["recommendations"].append(
-                        "Rich information available - consider deeper analysis"
-                    )
-                if include_analysis:
-                    research_results["recommendations"].append(
-                        "Use content_operations tool for detailed insights"
-                    )
-
-            return format_research_analysis_markdown(
-                {
-                    "topic": topic,
-                    "summary": research_results.get("summary", ""),
-                    "key_findings": research_results.get("key_findings", []),
-                    "sources": research_results.get("sources_researched", []),
-                    "status": "success",
-                },
-                "Topic Research",
+            if mode == "entity":
+                return await _run_entity_mode(topic, max_sources=max_sources, session_id=session_id)
+            return await _run_topic_mode(
+                topic,
+                sources=sources,
+                max_sources=max_sources,
+                include_analysis=include_analysis,
+                session_id=session_id,
             )
-
         except Exception as e:
             logger.error(f"Research topic failed: {e}")
             return format_research_analysis_markdown(
-                {"topic": topic, "status": "error", "error": str(e)}, "Topic Research"
+                {"topic": topic, "status": "error", "error": str(e)},
+                "Topic Research",
             )
+
+
+# ── Helpers used by research_topic modes ─────────────────────────────────────
+
+
+async def _auto_save(session_id: Optional[str], findings: List[Dict[str, Any]]) -> None:
+    """Best-effort append to a research memory session. Silent on failure
+    so memory unavailability never breaks a research call."""
+    if not session_id or not findings:
+        return
+    try:
+        from src.core.memory import research_session_add
+
+        await research_session_add(session_id, findings=findings)
+    except Exception as e:
+        logger.debug("auto-save to session %s failed: %s", session_id, e)
+
+
+async def _run_topic_mode(
+    topic: str,
+    *,
+    sources: Optional[List[str]],
+    max_sources: int,
+    include_analysis: bool,
+    session_id: Optional[str],
+) -> str:
+    """Original research_topic behaviour: search + fetch + extract, now
+    with automatic quality scoring and optional session memory."""
+    from src.core.fetch import base_fetch_url
+
+    logger.info("Starting comprehensive research on: %s", topic)
+
+    if not sources:
+        from src.core.search.engines.duckduckgo.duckduckgo_engine import (
+            DuckDuckGoSearchEngine,
+        )
+
+        engine = DuckDuckGoSearchEngine()
+        results = await engine.search(query=topic, num_results=max_sources)
+        sources = [r.url for r in results[:max_sources] if r.url]
+
+    sources_researched: List[Dict[str, Any]] = []
+    key_findings: List[str] = []
+
+    for source_url in sources:
+        try:
+            content = await base_fetch_url(source_url)
+            if not content:
+                continue
+            from src.utils import clean_html_to_markdown
+
+            clean_content = clean_html_to_markdown(str(content), source_url)
+            sources_researched.append(
+                {
+                    "url": source_url,
+                    "title": source_url,
+                    "content": clean_content,
+                    "content_length": len(clean_content),
+                }
+            )
+            if include_analysis:
+                sentences = re.split(r"[.!?]+", clean_content)
+                key_sentences = [
+                    s.strip()
+                    for s in sentences
+                    if len(s.strip()) > 50
+                    and any(
+                        word in s.lower()
+                        for word in ("important", "key", "critical", "significant")
+                    )
+                ]
+                key_findings.extend(key_sentences[:3])
+        except Exception as e:
+            logger.warning("Failed to retrieve content from %s: %s", source_url, e)
+
+    # Auto-attach quality + aggregate confidence.
+    scored = assess_results(sources_researched)
+    confidence = summarize_quality(scored)
+
+    summary = (
+        (
+            f"Research on '{topic}': {len(scored)} sources, "
+            f"{len(key_findings)} key findings. "
+            f"Confidence {confidence['confidence']} "
+            f"(mean {confidence['mean_score']}/100, "
+            f"{confidence['independent_domains']} independent domains)."
+        )
+        if scored
+        else f"Research on '{topic}': no sources retrieved."
+    )
+
+    await _auto_save(session_id, scored)
+
+    return format_research_analysis_markdown(
+        {
+            "topic": topic,
+            "summary": summary,
+            "key_findings": key_findings,
+            "sources": scored,
+            "confidence": confidence,
+            "status": "success",
+        },
+        "Topic Research",
+    )
+
+
+async def _run_entity_mode(
+    entity: str,
+    *,
+    max_sources: int,
+    session_id: Optional[str],
+) -> str:
+    """Unified cross-source entity profile: web + news + github + social
+    + academic fanned out in parallel, per-result quality, aggregate
+    confidence, optional session persistence."""
+    from src.core.news.aggregator import NewsAggregator
+    from src.core.scientific.search.orchestrator import AcademicSearchOrchestrator
+    from src.core.social.bluesky import BlueskySearch
+    from src.core.social.hackernews import HackerNewsSearch
+    from src.core.social.reddit import RedditSearch
+    from src.core.social.stackoverflow import StackOverflowSearch
+    from src.tools.multi_search import MultiSearchOrchestrator
+
+    logger.info("Profiling entity: %s", entity)
+
+    tasks: Dict[str, Any] = {
+        "web": MultiSearchOrchestrator().search_all_engines(
+            query=entity,
+            num_results=max_sources,
+            extract_content=False,
+            follow_links=False,
+            max_depth=1,
+        ),
+        "news": NewsAggregator().search_news(
+            query=entity, max_results=max_sources, time_range="month"
+        ),
+        "hn": HackerNewsSearch().search(query=entity, limit=max_sources),
+        "reddit": RedditSearch().search(
+            query=entity, subreddit="all", limit=max_sources, time_filter="month"
+        ),
+        "so": StackOverflowSearch().search(query=entity, site="stackoverflow", limit=max_sources),
+        "bsky": BlueskySearch().search(query=entity, limit=max_sources),
+        "academic": AcademicSearchOrchestrator().search_academic_papers(
+            query=entity,
+            sources=["openalex", "crossref", "arxiv"],
+            limit=max_sources,
+        ),
+    }
+
+    try:
+        from src.core.github_api.search import GitHubSearch
+
+        tasks["github"] = GitHubSearch().search_repositories(query=entity, per_page=max_sources)
+    except Exception as e:
+        logger.debug("github fan-out skipped: %s", e)
+
+    names = list(tasks.keys())
+    outs = await asyncio.gather(*tasks.values(), return_exceptions=True)
+    by_name = dict(zip(names, outs))
+
+    sections: Dict[str, List[Dict[str, Any]]] = {
+        "web": [],
+        "news": [],
+        "github": [],
+        "social": [],
+        "academic": [],
+    }
+    failures: Dict[str, str] = {}
+
+    web = by_name.get("web")
+    if isinstance(web, Exception):
+        failures["web"] = str(web)
+    elif isinstance(web, dict):
+        for engine_data in (web.get("results") or {}).values():
+            for r in (engine_data or {}).get("results", []):
+                if isinstance(r, dict):
+                    sections["web"].append(r)
+                elif hasattr(r, "to_dict"):
+                    sections["web"].append(r.to_dict())
+
+    news = by_name.get("news")
+    if isinstance(news, Exception):
+        failures["news"] = str(news)
+    elif news:
+        sections["news"] = list(news)
+
+    github = by_name.get("github")
+    if isinstance(github, Exception):
+        failures["github"] = str(github)
+    elif github:
+        for r in github:
+            if "url" not in r and "html_url" in r:
+                r["url"] = r["html_url"]
+            sections["github"].append(r)
+
+    for key in ("hn", "reddit", "so", "bsky"):
+        data = by_name.get(key)
+        if isinstance(data, Exception):
+            failures[key] = str(data)
+        elif data:
+            for item in data:
+                if "text" in item and "title" not in item:
+                    item["title"] = item["text"][:120]
+                sections["social"].append(item)
+
+    academic = by_name.get("academic")
+    if isinstance(academic, Exception):
+        failures["academic"] = str(academic)
+    elif academic:
+        sections["academic"] = list(academic)
+
+    for key in list(sections.keys()):
+        sections[key] = assess_results(sections[key])[:max_sources]
+
+    # Aggregate confidence across the union
+    union = [it for items in sections.values() for it in items]
+    union_annotated = assess_results(
+        [{k: v for k, v in it.items() if k != "quality"} for it in union]
+    )
+    confidence = summarize_quality(union_annotated)
+
+    # Flatten for auto-save
+    flat_findings: List[Dict[str, Any]] = []
+    for section_name, items in sections.items():
+        for it in items:
+            enriched = dict(it)
+            enriched.setdefault("section", section_name)
+            flat_findings.append(enriched)
+    await _auto_save(session_id, flat_findings)
+
+    # Render a structured multi-section report
+    md = f"# 🗺️ Entity Profile: *{entity}*\n\n"
+    badge = {"high": "🟢", "medium": "🟡", "low": "🔴", "none": "⚪"}.get(
+        confidence["confidence"], "⚪"
+    )
+    md += (
+        f"**{badge} Confidence:** {confidence['confidence']} · "
+        f"mean quality {confidence['mean_score']}/100 · "
+        f"{confidence['independent_domains']} independent sources across "
+        f"{confidence['result_count']} results\n\n---\n\n"
+    )
+
+    section_titles = {
+        "web": "🌐 Web Overview",
+        "news": "📰 Recent News",
+        "github": "🐙 Code & Community",
+        "social": "💬 Community Sentiment",
+        "academic": "🔬 Academic Footprint",
+    }
+    for key, title in section_titles.items():
+        items = sections.get(key, [])
+        if not items:
+            continue
+        md += f"## {title}\n\n"
+        for i, it in enumerate(items[:5], 1):
+            heading = it.get("title") or it.get("name") or it.get("text", "")[:80]
+            md += f"### {i}. {heading}\n\n"
+            q = it.get("quality") or {}
+            if q:
+                md += f"**Quality:** {q.get('score', 0)}/100 " f"({q.get('tier', '?')})"
+                sig = q.get("signals") or {}
+                if sig.get("corroboration"):
+                    md += f" · corroborated by {sig['corroboration']} other sources"
+                md += "\n\n"
+            if it.get("description"):
+                md += f"{it['description'][:300]}\n\n"
+            url = it.get("url") or it.get("link")
+            if url:
+                md += f"[🔗 Source]({url})\n\n"
+            md += "---\n\n"
+
+    if failures:
+        md += "## ⚠️ Source Notes\n\n"
+        for src_name, err in failures.items():
+            md += f"- **{src_name}**: {err}\n"
+        md += "\n"
+
+    if session_id:
+        md += f"*Saved to research session `{session_id}`.*\n\n"
+
+    return md

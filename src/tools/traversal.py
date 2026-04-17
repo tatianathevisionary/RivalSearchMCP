@@ -103,6 +103,17 @@ This file contains information about {url} for Large Language Models.
 
                 response["llms_txt"] = llms_txt_content
 
+            # Auto-attach quality scores + aggregate confidence per page.
+            try:
+                from src.core.quality import assess_results, summarize_quality
+
+                pages_scored = assess_results(response.get("pages") or [])
+                response["pages"] = pages_scored
+                if pages_scored:
+                    response["confidence"] = summarize_quality(pages_scored)
+            except Exception as e:
+                logger.warning("map_website quality scoring failed: %s", e)
+
             return format_traversal_markdown(response)
 
         except Exception as e:

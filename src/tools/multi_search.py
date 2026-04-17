@@ -250,6 +250,22 @@ async def web_search(
 
         await ctx.report_progress(0.9)
 
+        # Auto-attach quality scores to every result across every engine
+        # so the downstream agent/reader gets a trust signal for free.
+        try:
+            from src.core.quality import assess_results, summarize_quality
+
+            union: list = []
+            per_engine = results.get("results") or {}
+            for engine_name, engine_data in per_engine.items():
+                scored = assess_results(engine_data.get("results") or [])
+                engine_data["results"] = scored
+                union.extend(scored)
+            if union:
+                results.setdefault("summary", {})["confidence"] = summarize_quality(union)
+        except Exception as e:
+            logger.warning("web_search quality scoring failed: %s", e)
+
         # Format results
         formatted_results = format_multi_search_markdown(results)
 
