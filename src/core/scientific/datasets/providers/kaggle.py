@@ -1,151 +1,105 @@
 """
 Kaggle dataset search provider.
-Handles searching and retrieving datasets from Kaggle API.
+
+Uses Kaggle's public `/api/v1/datasets/list` endpoint. Most Kaggle
+API endpoints require a signed kaggle.json key, but the list
+endpoint accepts anonymous queries (returns 400 + "You must accept
+the rules of this competition" shape for gated datasets, which we
+log at debug and skip).
 """
 
-import asyncio
 from typing import Any, Dict, List, Optional
 
-import requests
+import httpx
 
 from src.logging.logger import logger
 
+_API_BASE = "https://www.kaggle.com/api/v1"
+
 
 class KaggleDatasetProvider:
-    """Provider for searching Kaggle datasets."""
+    """Search Kaggle datasets via the public list endpoint."""
 
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "RivalSearchMCP/1.0"})
+        self.headers = {
+            "User-Agent": (
+                "rivalsearchmcp/1.0 " "(+https://github.com/damionrashford/RivalSearchMCP)"
+            ),
+            "Accept": "application/json",
+        }
 
     async def search(
         self, query: str, limit: int = 20, sort_by: str = "relevance"
     ) -> List[Dict[str, Any]]:
-        """
-        Search datasets on Kaggle.
+        params: Dict[str, Any] = {"search": query, "size": min(limit, 100)}
+        sort_map = {
+            "hotness": "hotness",
+            "votes": "voteCount",
+            "updated": "lastUpdated",
+        }
+        if sort_by in sort_map:
+            params["sortBy"] = sort_map[sort_by]
 
-        Args:
-            query: Search query
-            limit: Maximum number of results
-            sort_by: Sort criteria (relevance, hotness, votes, updated)
-
-        Returns:
-            List of dataset dictionaries
-        """
         try:
-            params = {"search": query, "size": min(limit, 100)}
-
-            if sort_by == "hotness":
-                params["sortBy"] = "hotness"
-            elif sort_by == "votes":
-                params["sortBy"] = "voteCount"
-            elif sort_by == "updated":
-                params["sortBy"] = "lastUpdated"
-
-            response = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self.session.get(
-                    "https://www.kaggle.com/api/v1/datasets/list",
-                    params=params,
-                    timeout=30,
-                ),
-            )
-
-            if response.status_code == 200:
-                datasets = response.json()
-                logger.info(f"Found {len(datasets)} datasets from Kaggle for query: {query}")
-
-                # Normalize and optimize Kaggle dataset structure
-                normalized_datasets = []
-                for dataset in datasets[:limit]:
-                    # Extract only essential fields for efficiency
-                    normalized = {
-                        "id": dataset.get("id"),
-                        "title": dataset.get("title", dataset.get("titleNullable", "")),
-                        "description": dataset.get("subtitle", dataset.get("subtitleNullable", "")),
-                        "owner_name": dataset.get(
-                            "ownerName", dataset.get("ownerNameNullable", "")
-                        ),
-                        "url": dataset.get("url", dataset.get("urlNullable", "")),
-                        "license": dataset.get(
-                            "licenseName", dataset.get("licenseNameNullable", "")
-                        ),
-                        "size_bytes": dataset.get("totalBytes", dataset.get("totalBytesNullable")),
-                        "download_count": dataset.get("downloadCount", 0),
-                        "vote_count": dataset.get("voteCount", 0),
-                        "last_updated": dataset.get("lastUpdated"),
-                        "tags": [
-                            tag.get("name", "")
-                            for tag in dataset.get("tags", [])
-                            if tag.get("name")
-                        ],
-                        "source": "kaggle",
-                    }
-                    # Remove None values to reduce payload size
-                    normalized = {k: v for k, v in normalized.items() if v is not None and v != ""}
-                    normalized_datasets.append(normalized)
-
-                return normalized_datasets
-            elif response.status_code == 400:
-                logger.debug(
-                    "Kaggle API requires authentication (kaggle.json). Using other sources."
-                )
-                return []
-            else:
-                logger.warning(f"Kaggle API error: {response.status_code}")
-                return []
-
-        except Exception as e:
-            logger.error(f"Error searching Kaggle datasets: {e}")
+            async with httpx.AsyncClient(
+                headers=self.headers, timeout=30.0, follow_redirects=True
+            ) as client:
+                r = await client.get(f"{_API_BASE}/datasets/list", params=params)
+                if r.status_code == 400:
+                    logger.debug(
+                        "kaggle list endpoint 400 -- anonymous queries sometimes "
+                        "refused; other sources will fill in"
+                    )
+                    return []
+                if r.status_code != 200:
+                    logger.warning(
+                        "kaggle returned %s (body: %s)",
+                        r.status_code,
+                        r.text[:200],
+                    )
+                    return []
+                datasets = r.json() or []
+                out = [self._format(d) for d in datasets[:limit]]
+                logger.info("kaggle: %d for %r", len(out), query)
+                return out
+        except httpx.HTTPError as e:
+            logger.warning("kaggle network error: %s", e)
+            return []
+        except Exception:
+            logger.exception("kaggle unexpected error")
             return []
 
+    def _format(self, ds: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "id": ds.get("id"),
+            "title": ds.get("title") or ds.get("titleNullable") or "",
+            "description": ds.get("subtitle") or ds.get("subtitleNullable") or "",
+            "owner_name": ds.get("ownerName") or ds.get("ownerNameNullable") or "",
+            "url": ds.get("url") or ds.get("urlNullable") or "",
+            "license": ds.get("licenseName") or ds.get("licenseNameNullable") or "",
+            "size_bytes": ds.get("totalBytes") or ds.get("totalBytesNullable"),
+            "download_count": ds.get("downloadCount", 0),
+            "vote_count": ds.get("voteCount", 0),
+            "last_updated": ds.get("lastUpdated"),
+            "tags": [tag.get("name", "") for tag in ds.get("tags", []) if tag.get("name")],
+            "source": "kaggle",
+        }
+
     async def get_dataset_details(self, dataset_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get detailed information for a specific Kaggle dataset.
-
-        Args:
-            dataset_id: Kaggle dataset identifier
-
-        Returns:
-            Dataset details or None if not found
-        """
+        if "/" not in dataset_id:
+            logger.warning("kaggle: invalid dataset_id format %r", dataset_id)
+            return None
         try:
-            # Kaggle dataset IDs are in format "owner/dataset-name"
-            if "/" not in dataset_id:
-                logger.warning(f"Invalid Kaggle dataset ID format: {dataset_id}")
-                return None
-
-            url = f"https://www.kaggle.com/api/v1/datasets/view/{dataset_id}"
-
-            response = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self.session.get(url, timeout=30),
-            )
-
-            if response.status_code == 200:
-                dataset = response.json()
-                return {
-                    "id": dataset_id,
-                    "title": dataset.get("title", ""),
-                    "description": dataset.get("subtitle", ""),
-                    "owner_name": dataset.get("ownerName", ""),
-                    "url": dataset.get("url", ""),
-                    "license": dataset.get("licenseName", ""),
-                    "size_bytes": dataset.get("totalBytes"),
-                    "download_count": dataset.get("downloadCount", 0),
-                    "vote_count": dataset.get("voteCount", 0),
-                    "last_updated": dataset.get("lastUpdated"),
-                    "tags": [tag.get("name", "") for tag in dataset.get("tags", [])],
-                    "source": "kaggle",
-                }
-            else:
-                logger.warning(f"Failed to get Kaggle dataset details: {response.status_code}")
-                return None
-
-        except Exception as e:
-            logger.error(f"Error getting Kaggle dataset details: {e}")
+            async with httpx.AsyncClient(
+                headers=self.headers, timeout=30.0, follow_redirects=True
+            ) as client:
+                r = await client.get(f"{_API_BASE}/datasets/view/{dataset_id}")
+                if r.status_code != 200:
+                    return None
+                return self._format(r.json())
+        except Exception:
+            logger.exception("kaggle get_dataset_details failed")
             return None
 
     def close(self):
-        """Close the session."""
-        self.session.close()
+        """Nothing to close; AsyncClient is used per-call."""

@@ -429,13 +429,6 @@ class SecurityMiddleware:
                 if not valid:
                     return False, f"Invalid content: {result}"
 
-        elif tool_name == "research_workflow":
-            # Validate topic
-            if "topic" in parameters:
-                valid, result = validator.validate_search_query(parameters["topic"])
-                if not valid:
-                    return False, f"Invalid topic: {result}"
-
         # Add more tool validations as needed
 
         return True, "Parameters valid"

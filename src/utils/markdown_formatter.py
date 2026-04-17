@@ -3,7 +3,7 @@ Utilities for formatting tool outputs as clean markdown.
 """
 
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
@@ -20,7 +20,7 @@ def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
     if total_results > 0:
         output += "💡 **Next Steps:**\n"
         output += "- Use `content_operations` to retrieve full content from discussion URLs\n"
-        output += "- Use `research_agent` to synthesize community insights\n\n"
+        output += "- Use `find_conflicts` to surface disagreements between sources\n\n"
         output += "---\n\n"
 
     # Reddit results
@@ -81,28 +81,138 @@ def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
             output += f"[🔗 Read on Medium]({article['url']})\n\n"
             output += "---\n\n"
 
+    # Stack Overflow / Stack Exchange results
+    if "stackoverflow" in results and results["stackoverflow"].get("results"):
+        output += "## Stack Overflow Results\n\n"
+        for i, q in enumerate(results["stackoverflow"]["results"][:10], 1):
+            output += f"### {i}. {q['title']}\n\n"
+            stats = (
+                f"**Score:** {q.get('score', 0)} | "
+                f"**Answers:** {q.get('answer_count', 0)} | "
+                f"**Views:** {q.get('view_count', 0)}"
+            )
+            if q.get("accepted_answer_id"):
+                stats += " | ✅ **Accepted answer**"
+            output += stats + "\n\n"
+            if q.get("author"):
+                output += f"**By:** {q['author']}\n\n"
+            if q.get("tags"):
+                output += f"**Tags:** {', '.join(q['tags'][:5])}\n\n"
+            output += f"[🔗 View Question]({q['url']})\n\n"
+            output += "---\n\n"
+
+    # Bluesky results
+    if "bluesky" in results and results["bluesky"].get("results"):
+        output += "## Bluesky Results\n\n"
+        for i, post in enumerate(results["bluesky"]["results"][:10], 1):
+            display = post.get("author_display_name") or post.get("author_handle", "")
+            handle = post.get("author_handle", "")
+            output += f"### {i}. {display} (@{handle})\n\n"
+            output += f"{post.get('text', '')}\n\n"
+            output += (
+                f"**♥ {post.get('like_count', 0)} · "
+                f"🔁 {post.get('repost_count', 0)} · "
+                f"💬 {post.get('reply_count', 0)}**\n\n"
+            )
+            if post.get("url"):
+                output += f"[🔗 View Post]({post['url']})\n\n"
+            output += "---\n\n"
+
+    # Lobste.rs results
+    if "lobsters" in results and results["lobsters"].get("results"):
+        output += "## Lobste.rs Results\n\n"
+        for i, story in enumerate(results["lobsters"]["results"][:10], 1):
+            output += f"### {i}. {story['title']}\n\n"
+            output += (
+                f"**Score:** {story.get('score', 0)} | "
+                f"**Comments:** {story.get('comments_count', 0)}\n\n"
+            )
+            if story.get("tags"):
+                output += f"**Tags:** {', '.join(story['tags'][:5])}\n\n"
+            if story.get("byline"):
+                output += f"*{story['byline']}*\n\n"
+            if story.get("url"):
+                output += f"[🔗 Link]({story['url']})"
+                if story.get("comments_url"):
+                    output += f" | [💬 Discussion]({story['comments_url']})"
+                output += "\n\n"
+            elif story.get("comments_url"):
+                output += f"[💬 Discussion]({story['comments_url']})\n\n"
+            output += "---\n\n"
+
+    # Lemmy results
+    if "lemmy" in results and results["lemmy"].get("results"):
+        output += "## Lemmy Results\n\n"
+        for i, post in enumerate(results["lemmy"]["results"][:10], 1):
+            community = post.get("community", "")
+            output += f"### {i}. {post['title']}"
+            if community:
+                output += f" — *!{community}*"
+            output += "\n\n"
+            output += (
+                f"**Score:** {post.get('score', 0)} | "
+                f"**Comments:** {post.get('comments', 0)} | "
+                f"**By:** {post.get('author', 'unknown')}\n\n"
+            )
+            if post.get("body"):
+                output += f"{post['body'][:200]}\n\n"
+            link = post.get("url") or post.get("ap_id", "")
+            if link:
+                output += f"[🔗 View Post]({link})\n\n"
+            output += "---\n\n"
+
     output += f"*Search completed on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
     return output
 
 
-def format_news_markdown(query: str, articles: List[Dict[str, Any]], time_range: str) -> str:
-    """Format news aggregation results as clean markdown."""
+def format_news_markdown(
+    query: str,
+    articles: List[Dict[str, Any]],
+    time_range: str,
+    confidence: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Format news aggregation results as clean markdown.
+
+    `confidence` is the aggregate summary from
+    ``src.core.quality.summarize_quality``. When present, a
+    trust-signal header is rendered; per-article `quality` blocks are
+    folded into each item's metadata.
+    """
     output = f"# 📰 News Search Results for: *{query}*\n\n"
     output += f"**Found {len(articles)} news articles**\n\n"
     if time_range != "anytime":
         output += f"**Time Range:** {time_range}\n\n"
+
+    if confidence:
+        conf = confidence.get("confidence", "unknown")
+        badge = {"high": "🟢", "medium": "🟡", "low": "🔴", "none": "⚪"}.get(conf, "⚪")
+        output += (
+            f"**{badge} Confidence:** {conf} "
+            f"(mean score {confidence.get('mean_score', 0)}/100, "
+            f"{confidence.get('independent_domains', 0)} independent sources)\n\n"
+        )
+
     output += "---\n\n"
 
-    # Add workflow hint
     if len(articles) > 0:
         output += "💡 **Next Steps:**\n"
         output += "- Use `content_operations` to retrieve full article content\n"
         output += "- Use `document_analysis` if articles link to PDFs\n"
-        output += "- Use `research_agent` for comprehensive news analysis\n\n"
+        output += "- Use `score_sources` to rate the returned URLs\n\n"
         output += "---\n\n"
 
     for i, article in enumerate(articles, 1):
         output += f"## {i}. {article.get('title', 'Untitled')}\n\n"
+
+        # Quality chip for this article
+        q = article.get("quality") or {}
+        if q:
+            output += f"**Quality:** {q.get('score', 0)}/100 ({q.get('tier', '?')})"
+            sig = q.get("signals", {}) or {}
+            corroboration = sig.get("corroboration")
+            if corroboration:
+                output += f" · corroborated by {corroboration} other source(s)"
+            output += "\n\n"
 
         if article.get("source"):
             output += f"**Source:** {article['source']}"
@@ -131,7 +241,7 @@ def format_github_markdown(query: str, repositories: List[Dict[str, Any]]) -> st
         output += "💡 **Next Steps:**\n"
         output += "- Use `content_operations` to retrieve README files from repo URLs\n"
         output += "- Use `map_website` to explore repository documentation\n"
-        output += "- Use `research_agent` for comprehensive code/project analysis\n\n"
+        output += "- Use `entity_research` for a unified cross-source profile\n\n"
         output += "---\n\n"
 
     for i, repo in enumerate(repositories, 1):
@@ -182,7 +292,7 @@ def format_academic_search_markdown(results: Dict[str, Any]) -> str:
         output += "💡 **Next Steps:**\n"
         output += "- Use `document_analysis` to extract text from PDF links\n"
         output += "- Use `content_operations` to retrieve paper pages\n"
-        output += "- Use `research_agent` for comprehensive literature review\n\n"
+        output += "- Use `document_analysis` on PDF links for full text\n\n"
         output += "---\n\n"
 
     # Papers

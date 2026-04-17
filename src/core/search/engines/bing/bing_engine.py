@@ -1,15 +1,15 @@
 """
-DuckDuckGo search engine implementation for RivalSearchMCP.
+Bing web search engine via www.bing.com/search.
 
-The search-page request at html.duckduckgo.com is fronted by DDG's
-anti-bot layer, which returns HTTP 202 + an empty results page to
-plain httpx (Python's default TLS fingerprint is not a browser).
+Bing's SERP is Cloudflare/Akamai-fronted and TLS-fingerprints callers.
 Scrapling's AsyncFetcher with stealthy_headers=True drives tls_client
-with a real browser fingerprint and a realistic header set, so DDG
-serves the normal results HTML.
+with a real browser fingerprint, which is sufficient to receive the
+full results HTML. No browser binary required.
 
-Content fetching for result URLs stays on httpx (BaseSearchEngine's
-shared session); most target sites don't bot-check us.
+Result cards are li.b_algo; title text is inside h2 > a; href on the
+link is a Bing redirector (bing.com/ck/...) that resolves to the real
+target when followed. BaseSearchEngine._extract_real_url handles the
+redirect parameter pattern we care about when extract_content=True.
 """
 
 from datetime import datetime
@@ -22,12 +22,12 @@ from src.logging.logger import logger
 from ...core.multi_engines import BaseSearchEngine, MultiSearchResult
 
 
-class DuckDuckGoSearchEngine(BaseSearchEngine):
-    """DuckDuckGo search via html.duckduckgo.com (Scrapling-powered)."""
+class BingSearchEngine(BaseSearchEngine):
+    """Bing web search via www.bing.com/search (Scrapling-powered)."""
 
     def __init__(self):
-        super().__init__("DuckDuckGo", "https://duckduckgo.com")
-        self.search_url = "https://html.duckduckgo.com/html/"
+        super().__init__("Bing", "https://www.bing.com")
+        self.search_url = f"{self.base_url}/search"
 
     async def search(
         self,
@@ -37,11 +37,10 @@ class DuckDuckGoSearchEngine(BaseSearchEngine):
         follow_links: bool = True,
         max_depth: int = 2,
     ) -> List[MultiSearchResult]:
-        """Search DuckDuckGo and optionally extract result-page content."""
-        logger.info("Starting DuckDuckGo search for: %s", query)
+        logger.info("Starting Bing search for: %s", query)
 
         results = await self._search_html(query, num_results)
-        logger.info("DuckDuckGo returned %d results", len(results))
+        logger.info("Bing returned %d results", len(results))
 
         if extract_content and results:
             for result in results:
@@ -66,44 +65,50 @@ class DuckDuckGoSearchEngine(BaseSearchEngine):
         return results
 
     async def _search_html(self, query: str, num_results: int) -> List[MultiSearchResult]:
-        """Query html.duckduckgo.com via Scrapling and parse result cards."""
+        # mkt=en-US + setlang=en pin results to English; without them Bing
+        # geolocates from egress IP and frequently returns non-English
+        # results from cloud IPs (e.g. Chinese results for US cloud egress).
         try:
             page = await AsyncFetcher.get(
-                f"{self.search_url}?q={query}",
+                self.search_url,
+                params={
+                    "q": query,
+                    "mkt": "en-US",
+                    "setlang": "en",
+                    "count": min(num_results * 2, 30),
+                },
+                headers={"Accept-Language": "en-US,en;q=0.9"},
                 stealthy_headers=True,
                 timeout=30,
             )
         except Exception as e:
-            logger.error("DuckDuckGo fetch failed: %s", e)
+            logger.error("Bing fetch failed: %s", e)
             return []
 
         if page.status != 200:
             logger.warning(
-                "DuckDuckGo returned %s for %r (body snippet: %s)",
+                "Bing returned %s for %r (body snippet: %s)",
                 page.status,
                 query,
-                (page.text or "")[:200],
+                (page.body or b"")[:200],
             )
             return []
 
         results: List[MultiSearchResult] = []
-        # DDG html page: results are <div class="result"> with an
-        # <a class="result__a"> title link and <a class="result__snippet">
-        # snippet. Scrapling .css returns a Selectors list (not a single
-        # element), so index into it.
-        cards = page.css("div.result")
+        cards = page.css("li.b_algo")
         for i, card in enumerate(cards[:num_results]):
-            title_links = card.css("a.result__a")
+            title_links = card.css("h2 a")
             if not title_links:
                 continue
-            title_link = title_links[0]
-            title = self._clean_text(title_link.text or "")
-            url = title_link.attrib.get("href", "")
+            title = self._clean_text(title_links[0].get_all_text() or "")
+            url = title_links[0].attrib.get("href", "")
             if not title or not url:
                 continue
 
-            snippet_els = card.css("a.result__snippet, div.result__snippet")
-            description = self._clean_text(snippet_els[0].text) if snippet_els else ""
+            snippet_nodes = card.css("p.b_lineclamp2, p.b_lineclamp3, p.b_paractl, div.b_caption p")
+            description = (
+                self._clean_text(snippet_nodes[0].get_all_text() or "") if snippet_nodes else ""
+            )
 
             results.append(
                 MultiSearchResult(

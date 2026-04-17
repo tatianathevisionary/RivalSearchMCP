@@ -18,12 +18,24 @@ def register_search_tools(mcp: FastMCP):
 
     @mcp.tool(
         name="web_search",
-        description="Search across Yahoo and DuckDuckGo engines with fallback support",
-        tags={"search", "web", "yahoo", "duckduckgo"},
+        description=(
+            "Concurrent multi-engine web search across DuckDuckGo, Bing, "
+            "Yahoo, Mojeek, and Wikipedia. Results are deduplicated and "
+            "merged; failures on any single engine do not block the others."
+        ),
+        tags={
+            "search",
+            "web",
+            "duckduckgo",
+            "bing",
+            "yahoo",
+            "mojeek",
+            "wikipedia",
+        },
         meta={
-            "version": "1.0",
+            "version": "2.0",
             "category": "Search",
-            "engines": ["yahoo", "duckduckgo"],
+            "engines": ["duckduckgo", "bing", "yahoo", "mojeek", "wikipedia"],
         },
         annotations={
             "title": "Web Search",

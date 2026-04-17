@@ -18,13 +18,19 @@ dependencies = [
     "pandas>=2.2.0",
     "urllib3<2.0.0",
     "python-dotenv>=1.0.0",
-    "openrouter>=0.0.1",
     "fastmcp>=2.12.5",
     "markdown>=3.5.0",
     "feedparser>=6.0.12",
     "pypdf>=6.6.0",
     "python-docx>=1.2.0",
     "easyocr>=1.7.2",
+    # Scrapling provides a browser-TLS-impersonating HTTP client (Fetcher /
+    # AsyncFetcher) plus adaptive CSS selectors. Used by the search engines
+    # to slip past Cloudflare/Akamai TLS fingerprinting on Bing, DuckDuckGo,
+    # and Yahoo -- and by the Bing News RSS source -- without shelling out
+    # to `curl` or running a headless browser. The `fetchers` extra pulls in
+    # just the HTTP stack (playwright types are imported but not executed).
+    "scrapling[fetchers]>=0.3.0",
 ]
 
 [project.optional-dependencies]
@@ -47,7 +53,7 @@ packages = ["src"]
 
 [tool.black]
 line-length = 100
-target-version = ["py39"]
+target-version = ["py310"]
 
 [tool.isort]
 profile = "black"
@@ -55,7 +61,7 @@ line_length = 100
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -64,8 +70,9 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 asyncio_mode = "auto"
 
-[dependency-groups]
-dev = [
-    "pytest>=9.0.2",
-    "pytest-asyncio>=1.3.0",
-]
+[tool.bandit]
+# `assert` is idiomatic in pytest; skip B101 in tests. Tests also exercise
+# request-shaping paths (hardcoded fixtures, localhost binds) that trip low-
+# severity rules with no real security impact.
+exclude_dirs = ["tests", ".venv", "venv"]
+skips = ["B101"]

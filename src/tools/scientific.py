@@ -48,8 +48,28 @@ def register_scientific_tools(mcp: FastMCP):
         - academic_search: Search for academic papers across multiple sources
         - dataset_discovery: Discover datasets from various repositories
 
-        Sources for academic_search: semantic_scholar, arxiv, pubmed
-        Sources for dataset_discovery: kaggle, huggingface
+        Sources for academic_search (all keyless, queried concurrently):
+          - openalex         ~240M works, strong full-text search, OA-aware
+          - crossref         ~140M DOI-registered works (journals, books,
+                             conference proceedings, preprints)
+          - arxiv            physics/math/CS/stats/q-bio/q-fin preprints
+          - pubmed           NCBI biomedical index
+          - europepmc        biomedical + bioRxiv/medRxiv preprints
+
+        semantic_scholar is no longer enabled by default -- the public
+        Graph API 429-rate-limits anonymous callers into uselessness and
+        there is no working scrape path (the SPA renders client-side).
+        OpenAlex covers the same ~240M-work surface area with no key.
+        Set SEMANTIC_SCHOLAR_API_KEY in the environment to re-enable it.
+
+        Sources for dataset_discovery:
+          - kaggle           Kaggle datasets list endpoint
+          - huggingface      HuggingFace Hub datasets
+          - zenodo           CERN's open-science repository (CC-licensed)
+          - dataverse        Harvard Dataverse (largest research-data repo)
+
+        Defaults pick the highest-recall combination per operation; pass
+        `sources=[...]` to restrict.
         """
         try:
             if ctx:
@@ -58,7 +78,9 @@ def register_scientific_tools(mcp: FastMCP):
 
             if operation == "academic_search":
                 if sources is None:
-                    sources = ["semantic_scholar", "arxiv"]
+                    # OpenAlex + CrossRef give broadest keyless coverage;
+                    # arxiv for preprints.
+                    sources = ["openalex", "crossref", "arxiv"]
 
                 result = await academic_orchestrator.search_academic_papers(
                     query=query, sources=sources, limit=max_results
