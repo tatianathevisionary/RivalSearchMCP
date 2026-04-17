@@ -21,17 +21,18 @@ from src.prompts import register_prompts
 # Import custom routes
 from src.routes.routes import register_custom_routes
 from src.tools.analysis import register_analysis_tools
-from src.tools.conflict import register_conflict_tools
-from src.tools.entity import register_entity_tools
 from src.tools.github_tool import register_github_tools
 from src.tools.memory import register_memory_tools
 from src.tools.news import register_news_tools
 from src.tools.pdf_tool import register_pdf_tools
-from src.tools.quality import register_quality_tools
 
-# from src.tools.trends import register_trends_tools  # REMOVED - Google rate limits
-# research_agent (LLM-driven agent) was removed - RivalSearchMCP ships as
-# a deterministic research layer; LLM orchestration belongs in the caller.
+# Removed tools (capabilities folded into the tools above):
+#   - research_agent   -> LLM-driven, replaced by deterministic tools
+#   - entity_research  -> now research_topic(mode="entity")
+#   - find_conflicts   -> now content_operations(operation="find_conflicts")
+#   - score_sources    -> now content_operations(operation="score")
+#   - 5 research_session_* tools -> now single research_memory(operation=...)
+#   - trends_*         -> Google rate-limits, disabled
 from src.tools.scientific import register_scientific_tools
 from src.tools.search import register_search_tools
 from src.tools.social_media import register_social_media_tools
@@ -58,11 +59,11 @@ return results with per-item quality scores plus an aggregate
 confidence signal so callers can calibrate trust rather than treating
 all results as equal.
 
-🛠️  AVAILABLE TOOLS:
+🛠️  AVAILABLE TOOLS (10):
 
-Search & Discovery:
+Search (every result auto-annotated with a `quality` block + an
+aggregate `confidence` summary — high / medium / low):
 - web_search: DuckDuckGo + Bing + Yahoo + Mojeek + Wikipedia (no auth)
-- map_website: Structured website crawling (research / docs / map modes)
 - social_search: Reddit, Hacker News, Dev.to, Product Hunt, Medium,
                  Stack Overflow, Bluesky, Lobste.rs, Lemmy (no auth)
 - news_aggregation: Google News, Bing News, Guardian, GDELT, DuckDuckGo
@@ -71,34 +72,49 @@ Search & Discovery:
 - scientific_research: OpenAlex, CrossRef, arXiv, PubMed, Europe PMC for
                        papers; Kaggle, HuggingFace, Zenodo, Harvard
                        Dataverse for datasets (no auth)
+- map_website: Structured website crawling (research / docs / map modes)
 
-Content Analysis:
-- content_operations: Retrieve / stream / analyze / extract-links on URLs
-- research_topic: End-to-end deterministic research orchestration
-- document_analysis: PDF, DOCX, text, images (OCR) — up to 50MB
+Content + Synthesis (operation-dispatched tools with Literal enums):
+- content_operations: Pick `operation`:
+    retrieve / stream / analyze / extract  (URL or content transforms)
+    score                                  (rate a list of URLs)
+    find_conflicts                         (numeric / date / polarity
+                                            disagreements across URLs)
+- research_topic: Pick `mode`:
+    topic    (open-ended search + fetch + extract)
+    entity   (unified cross-source profile of a named entity, fanning
+              out across web + news + github + social + academic)
+  Accepts `session_id` to auto-save findings to research memory.
+- document_analysis: PDF, DOCX, text, images (OCR) — up to 50MB.
 
-Trust & Synthesis:
-- score_sources: Rate a list of URLs on four auditable signals
-                 (domain_tier, freshness, corroboration, citations)
-                 with a coarse confidence summary
-- entity_research: Unified cross-source profile of a named entity
-                   (company, product, person, project, technology)
-- find_conflicts: Rule-based detection of numeric, date, and polarity
-                  disagreements between source snippets
+Memory (one tool, `operation` enum covers all CRUD):
+- research_memory: Pick `operation`:
+    start  → create a workspace, returns session_id
+    add    → append findings and/or a note
+    get    → read full workspace state
+    list   → enumerate workspaces (optional tag filter)
+    delete → remove a workspace
 
 📋 USAGE PATTERNS:
 
-1. Quick search: web_search → content_operations → document_analysis
-2. Entity profile: entity_research (single call fans out everywhere)
-3. Trust check: score_sources on a list of URLs before acting
-4. Conflict check: find_conflicts when sources appear to disagree
-5. Academic: scientific_research → document_analysis on PDF links
-6. Topical: research_topic → content_operations on top sources
+1. Quick search: web_search → content_operations(operation="retrieve")
+   → document_analysis for PDFs
+2. Entity profile: research_topic(mode="entity", topic=...) — one call
+   fans out across every source and returns a unified report
+3. Trust check: content_operations(operation="score", urls=[...])
+4. Conflict check: content_operations(operation="find_conflicts",
+   urls=[...], claim?=...)
+5. Iterative research: research_memory(operation="start", topic=...)
+   → pass session_id into research_topic or research_memory(add)
+   across calls to accumulate findings
+6. Academic: scientific_research(operation="academic_search") →
+   document_analysis on PDF links
 
 💡 BEST PRACTICES:
-- Follow "Next Steps" hints in tool outputs for guided workflows
-- Treat confidence="low" in any output as a cue to cross-check
-- Combine tools: search → retrieve → analyze → score
+- Every search tool attaches `quality` per result — weight findings by
+  it when synthesizing; treat `confidence="low"` as a cue to cross-check
+- Combine tools: search → score → retrieve → analyze → conflicts
+- For multi-step research, use research_memory to carry context forward
 
 🚀 PERFORMANCE:
 - Multi-source tools fan out concurrently (asyncio.gather)
@@ -126,21 +142,15 @@ register_middleware(app)
 
 # Register all tools using modular approach
 
-register_search_tools(app)
-register_traversal_tools(app)
-register_analysis_tools(app)
-# register_trends_tools(app)  # REMOVED - Google rate limits
-# register_research_tools(app)  # REMOVED - research_agent was LLM-driven
-register_scientific_tools(app)
-register_social_media_tools(app)
-register_news_tools(app)
-register_github_tools(app)
-register_pdf_tools(app)
-register_quality_tools(app)
-register_entity_tools(app)
-register_conflict_tools(app)
-register_memory_tools(app)
-# OCR functionality is integrated into retrieval tools - no separate registration needed
+register_search_tools(app)  # web_search
+register_traversal_tools(app)  # map_website
+register_analysis_tools(app)  # content_operations + research_topic
+register_scientific_tools(app)  # scientific_research
+register_social_media_tools(app)  # social_search
+register_news_tools(app)  # news_aggregation
+register_github_tools(app)  # github_search
+register_pdf_tools(app)  # document_analysis
+register_memory_tools(app)  # research_memory (single tool, 5 ops)
 
 # Register prompts
 register_prompts(app)

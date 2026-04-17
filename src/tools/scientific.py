@@ -86,6 +86,16 @@ def register_scientific_tools(mcp: FastMCP):
                     query=query, sources=sources, limit=max_results
                 )
 
+                # Auto-attach quality scores + aggregate confidence.
+                try:
+                    from src.core.quality import assess_results, summarize_quality
+
+                    result = assess_results(result)
+                    confidence = summarize_quality(result)
+                except Exception as e:
+                    logger.warning("scientific_research quality scoring failed: %s", e)
+                    confidence = None
+
                 formatted_result = format_academic_search_markdown(
                     {
                         "status": "success",
@@ -95,6 +105,7 @@ def register_scientific_tools(mcp: FastMCP):
                             "total_results": len(result),
                             "sources_used": sources,
                             "timestamp": "now",
+                            **({"confidence": confidence} if confidence else {}),
                         },
                     }
                 )
@@ -107,6 +118,15 @@ def register_scientific_tools(mcp: FastMCP):
                     query=query, sources=sources, limit=max_results
                 )
 
+                try:
+                    from src.core.quality import assess_results, summarize_quality
+
+                    result = assess_results(result)
+                    confidence = summarize_quality(result)
+                except Exception as e:
+                    logger.warning("dataset_discovery quality scoring failed: %s", e)
+                    confidence = None
+
                 formatted_result = format_dataset_discovery_markdown(
                     {
                         "status": "success",
@@ -116,6 +136,7 @@ def register_scientific_tools(mcp: FastMCP):
                             "total_results": len(result),
                             "categories_searched": categories,
                             "timestamp": "now",
+                            **({"confidence": confidence} if confidence else {}),
                         },
                     }
                 )

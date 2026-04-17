@@ -53,6 +53,17 @@ def register_github_tools(mcp: FastMCP):
                 if readme:
                     top_repo["readme"] = readme[:1000]  # First 1000 chars
 
+            # Auto-attach quality scores so callers get a trust signal.
+            try:
+                from src.core.quality import assess_results
+
+                for repo in repositories:
+                    if "url" not in repo and "html_url" in repo:
+                        repo["url"] = repo["html_url"]
+                repositories = assess_results(repositories)
+            except Exception as e:
+                logger.warning("github_search quality scoring failed: %s", e)
+
             return format_github_markdown(query, repositories)
 
         except Exception as e:

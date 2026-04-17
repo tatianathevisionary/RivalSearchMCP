@@ -130,18 +130,31 @@ def register_social_media_tools(mcp: FastMCP):
             names = list(tasks.keys())
             outputs = await asyncio.gather(*tasks.values(), return_exceptions=True)
 
+            # Auto-attach quality scores per platform + aggregate confidence
+            try:
+                from src.core.quality import assess_results, summarize_quality
+            except Exception:
+                assess_results = None
+                summarize_quality = None
+
             results = {}
+            union: List = []
             for name, output in zip(names, outputs):
                 if isinstance(output, Exception):
                     logger.warning("Platform %s raised unexpectedly: %s", name, output)
                     items: List = []
                 else:
                     items = output or []
+                if assess_results and items:
+                    items = assess_results(items)
+                    union.extend(items)
                 results[name] = {
                     "status": "success" if items else "no_results",
                     "count": len(items),
                     "results": items,
                 }
+            if summarize_quality and union:
+                results["_confidence"] = summarize_quality(union)
 
             return format_social_media_markdown(query, results)
 
