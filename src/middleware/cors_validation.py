@@ -13,6 +13,7 @@ allowlist of trusted origins.
 
 import logging
 import os
+import re
 from typing import Callable, FrozenSet
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -31,6 +32,24 @@ _DEFAULT_ALLOWED_ORIGINS: FrozenSet[str] = frozenset(
     }
 )
 
+# Match http://127.0.0.1[:port] and http://localhost[:port] for local development.
+# CORS is a browser-only policy; permitting localhost does not expand the attack
+# surface because an attacker's page runs on their own origin, not localhost.
+_LOCAL_ORIGIN_PATTERN = re.compile(r"^http://(?:127\.0\.0\.1|localhost)(?::\d+)?$")
+
+# Headers the client may read from the response. The MCP session header is
+# required for Streamable HTTP session resumption; the protocol version is
+# required by MCP spec §6.1 for negotiation.
+_EXPOSED_HEADERS = "Mcp-Session-Id, Mcp-Protocol-Version"
+
+# Headers the client may send on a request.
+_ALLOWED_HEADERS = (
+    "Content-Type, Accept, Authorization, " "Mcp-Protocol-Version, Mcp-Session-Id, Last-Event-Id"
+)
+
+# Methods the client may use. DELETE is required for MCP session termination.
+_ALLOWED_METHODS = "GET, POST, DELETE, OPTIONS"
+
 
 def _get_allowed_origins() -> FrozenSet[str]:
     """Load allowed origins from environment or use defaults."""
@@ -39,6 +58,15 @@ def _get_allowed_origins() -> FrozenSet[str]:
         custom = frozenset(o.strip() for o in env_origins.split(",") if o.strip())
         return _DEFAULT_ALLOWED_ORIGINS | custom
     return _DEFAULT_ALLOWED_ORIGINS
+
+
+def _is_origin_allowed(origin: str, allowed: FrozenSet[str]) -> bool:
+    """Check exact-match allowlist, then local-development pattern."""
+    if origin in allowed:
+        return True
+    if _LOCAL_ORIGIN_PATTERN.match(origin):
+        return True
+    return False
 
 
 class CORSOriginValidationMiddleware(BaseHTTPMiddleware):
@@ -63,7 +91,7 @@ class CORSOriginValidationMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Check if origin is allowed
-        if origin not in self.allowed_origins:
+        if not _is_origin_allowed(origin, self.allowed_origins):
             logger.warning(
                 "Blocked request from untrusted origin: %s (method=%s path=%s)",
                 origin,
@@ -84,16 +112,17 @@ class CORSOriginValidationMiddleware(BaseHTTPMiddleware):
                 status_code=204,
                 headers={
                     "Access-Control-Allow-Origin": origin,
-                    "Access-Control-Allow-Methods": "POST, OPTIONS",
-                    "Access-Control-Allow-Headers": (
-                        "Content-Type, Mcp-Protocol-Version, Mcp-Session-Id"
-                    ),
+                    "Access-Control-Allow-Methods": _ALLOWED_METHODS,
+                    "Access-Control-Allow-Headers": _ALLOWED_HEADERS,
+                    "Access-Control-Expose-Headers": _EXPOSED_HEADERS,
                     "Access-Control-Max-Age": "86400",
+                    "Vary": "Origin",
                 },
             )
 
         # Actual request from allowed origin
         response = await call_next(request)
         response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Expose-Headers"] = _EXPOSED_HEADERS
         response.headers["Vary"] = "Origin"
         return response
