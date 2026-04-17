@@ -12,78 +12,66 @@ RivalSearchMCP is an MCP server providing 10 specialized tools for web research,
 
 ## Development Commands
 
+The project uses [uv](https://docs.astral.sh/uv/) for dependency management and the [`fastmcp`](https://gofastmcp.com) CLI for running the server. Configuration lives in `fastmcp.json` (source / environment / deployment) and `pyproject.toml`.
+
 ### Setup & Running
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Install with dev dependencies
-pip install -e ".[dev]"
+# Install all dependencies (prod + dev) into a uv-managed venv
+uv sync --extra dev
 
 # Set up pre-commit hooks
-pre-commit install
+uv run pre-commit install
 
-# Run server (stdio mode - default for MCP clients)
-python server.py
+# Run server (auto-detects fastmcp.json)
+fastmcp run
 
-# Run in production mode (HTTP transport)
-ENVIRONMENT=production python server.py
+# Run with stdio transport (for MCP clients / IDEs)
+fastmcp run --transport stdio
 
-# Custom port
-PORT=8080 ENVIRONMENT=production python server.py
+# Run with HTTP transport (production)
+fastmcp run --transport http --host 0.0.0.0 --port 8000
+
+# Inspect server's tools/resources/prompts
+fastmcp inspect
+
+# Launch MCP Inspector UI for interactive testing
+fastmcp dev inspector
 ```
 
 ### Testing
 ```bash
 # Run all tests
-pytest
+uv run pytest
 
 # Run specific test file
-pytest tests/test_client.py
+uv run pytest tests/test_web_search.py
 
 # Run specific test function
-pytest tests/test_client.py::test_function_name
+uv run pytest tests/test_web_search.py::test_function_name
 
 # Run with coverage report
-pytest --cov=src --cov-report=term-missing
-
-# Filter by markers
-pytest -m unit           # Only unit tests
-pytest -m integration    # Only integration tests
-pytest -m "not slow"     # Skip slow tests
+uv run pytest --cov=src --cov-report=term-missing
 
 # Verbose with short traceback
-pytest -v --tb=short
+uv run pytest -v --tb=short
 ```
 
 ### Code Quality
 ```bash
 # Format code
-black src/ tests/
+uv run black src/ tests/
 
 # Sort imports
-isort src/ tests/
+uv run isort src/ tests/
 
 # Lint with auto-fix
-ruff check --fix src/ tests/
+uv run ruff check --fix src/ tests/
 
 # Type checking
-mypy src/
+uv run mypy src/
 
 # Run all pre-commit hooks
-pre-commit run --all-files
-```
-
-### Documentation
-```bash
-# Serve locally at http://127.0.0.1:8000
-mkdocs serve
-
-# Build static site
-mkdocs build
-
-# Deploy to GitHub Pages
-mkdocs gh-deploy
+uv run pre-commit run --all-files
 ```
 
 ## Architecture
@@ -203,17 +191,12 @@ All environment variables are optional - the system works without any configurat
 
 ## Testing Configuration
 
-**pytest.ini configuration:**
+**pytest configuration** (in `pyproject.toml` under `[tool.pytest.ini_options]`):
 - Test directory: `tests/`
-- Coverage minimum: 80% (`--cov-fail-under=80`)
-- Async mode: auto (pytest-asyncio handles async/await)
-- Test markers: `unit`, `integration`, `slow`
+- File pattern: `test_*.py`
+- Async mode: `auto` (pytest-asyncio handles async/await transparently)
 
-**Coverage exclusions:**
-- Test files (`*/tests/*`, `*/test_*.py`)
-- Package `__init__.py` files
-- Abstract methods and Protocol classes
-- Debug statements and `if __name__ == '__main__'` blocks
+Coverage is available via `pytest-cov` but not enforced by default — opt in with `--cov=src`.
 
 ## Workflow: Adding New Tools
 
@@ -275,12 +258,11 @@ fastmcp generate-cli https://RivalSearchMCP.fastmcp.app/mcp skills/rival-search-
 
 Enforced via pre-commit hooks:
 
-- **Line length:** 100 characters (black)
-- **Type hints:** Required for all function signatures (mypy with strict flags)
+- **Line length:** 100 characters (black, isort, ruff)
+- **Type hints:** Required for all function signatures (checked via `uv run mypy src/`)
 - **Import sorting:** isort with black profile
-- **Linting:** ruff with E, W, F, I, B, C4, UP rules
-- **Security:** bandit for security checks (excluding tests/)
-- **Python version:** 3.9+ (target-version in pyproject.toml)
+- **Linting:** ruff (auto-fix on pre-commit)
+- **Python version:** 3.10+ (`requires-python = ">=3.10"` in pyproject.toml; pinned to 3.12 via `.python-version`)
 
 ## Performance Considerations
 
