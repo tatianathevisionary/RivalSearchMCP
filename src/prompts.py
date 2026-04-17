@@ -12,42 +12,52 @@ def register_prompts(mcp: FastMCP):
     @mcp.prompt
     def comprehensive_research(topic: str, depth: str = "comprehensive") -> list:
         """
-        Generate a comprehensive research workflow using the research_agent.
-
-        This prompt guides the AI to use the research_agent tool effectively,
-        which autonomously searches web, social media, news, GitHub, and academic
-        sources to create a detailed research report.
+        Guide the caller's LLM through an end-to-end research workflow using
+        only the deterministic RivalSearchMCP tools. No in-server LLM is
+        invoked -- the caller's model does the synthesis.
 
         Args:
             topic: The research topic or question
             depth: Research depth (basic, comprehensive, expert)
         """
+        num_sources = {"basic": 5, "comprehensive": 10, "expert": 20}.get(depth, 10)
         return [
             {
                 "role": "user",
-                "content": f"""I need you to conduct comprehensive research on: {topic}
+                "content": f"""Conduct {depth} research on: {topic}
 
-Use the research_agent tool with these parameters:
-- topic: "{topic}"
-- research_depth: "{depth}"
-- max_sources: 15
-- enable_ai_insights: true
-- include_trends: false
-- include_website_analysis: true
+Use this tool sequence and synthesize the results yourself:
 
-The research_agent will autonomously:
-1. Search across DuckDuckGo, Yahoo, and Wikipedia
-2. Explore social media discussions (Reddit, Hacker News, etc.)
-3. Find relevant news articles
-4. Search GitHub repositories
-5. Analyze websites and documents
-6. Generate a 4000+ character professional report
+1. entity_research (if the topic is a named entity) for a unified
+   cross-source profile with per-item quality scores.
+   - entity: "{topic}"
 
-After receiving the research report, analyze it and provide:
-- Key findings summary
-- Important insights
-- Recommendations based on the research
-- Areas that need further investigation""",
+2. web_search for broader coverage.
+   - query: "{topic}"
+   - num_results: {num_sources}
+
+3. news_aggregation for recent developments.
+   - query: "{topic}"
+   - max_results: {num_sources}
+   - time_range: "month"
+
+4. scientific_research if the topic has academic depth.
+   - operation: "academic_search"
+   - query: "{topic}"
+   - max_results: {num_sources}
+
+5. score_sources on the 5-10 most relevant URLs to calibrate trust
+   before weighting findings.
+
+6. find_conflicts when two or more sources make specific factual
+   claims about the same referent -- surfaces disagreements as a
+   first-class signal rather than averaging them away.
+
+Then produce a report including:
+- Key findings (weight by source quality, call out corroboration)
+- Any conflicts surfaced by find_conflicts (explicitly)
+- Confidence level and why
+- Gaps / open questions worth a follow-up run""",
             }
         ]
 
@@ -161,7 +171,7 @@ Follow this research workflow:
    - operation: "academic_search"
    - query: "{research_question}"
    - max_results: {max_papers}
-   - sources: ["arxiv", "semantic_scholar"]
+   - sources: ["openalex", "crossref", "arxiv", "europepmc"]
 
 2. For papers with PDF links, use document_analysis to extract full text:
    - Extract text from PDFs

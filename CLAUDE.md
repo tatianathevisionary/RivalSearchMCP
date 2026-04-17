@@ -82,20 +82,27 @@ RivalSearchMCP uses a **modular tool-based architecture** where each tool catego
 
 ```
 src/
-├── tools/          # MCP tool implementations (10 tools)
-│   ├── analysis.py       # content_operations tool
-│   ├── multi_search.py   # multi_search tool
-│   ├── research.py       # research_topic tool
-│   ├── scientific.py     # scientific_research tool
-│   ├── search.py         # Tool registration orchestration
-│   ├── traversal.py      # traverse_website tool
-│   ├── trends.py         # trends_core, trends_export tools
-│   └── research_modules/ # AI-enhanced research (OpenRouter integration)
+├── tools/          # MCP tool implementations (deterministic, no LLM)
+│   ├── analysis.py       # content_operations + research_topic
+│   ├── multi_search.py   # MultiSearchOrchestrator (web_search)
+│   ├── scientific.py     # scientific_research (academic + datasets)
+│   ├── search.py         # web_search registration
+│   ├── traversal.py      # map_website
+│   ├── social_media.py   # social_search (9 platforms)
+│   ├── news.py           # news_aggregation (5 sources)
+│   ├── github_tool.py    # github_search
+│   ├── pdf_tool.py       # document_analysis
+│   ├── quality.py        # score_sources
+│   ├── entity.py         # entity_research
+│   └── conflict.py       # find_conflicts
 ├── core/           # Core business logic (reusable, not MCP-specific)
-│   ├── search/     # Multi-engine search orchestration
+│   ├── search/     # Multi-engine search orchestration (Scrapling-backed)
 │   ├── content/    # Extraction, parsing, cleaning (6-tier fallback)
-│   ├── trends/     # Google Trends API wrapper
-│   ├── scientific/ # Academic search (arXiv, PubMed, Semantic Scholar, etc.)
+│   ├── news/       # Google/Bing/Guardian/GDELT/DDG aggregator
+│   ├── social/     # 9 platform adapters
+│   ├── scientific/ # OpenAlex, CrossRef, arXiv, PubMed, Europe PMC + datasets
+│   ├── quality/    # Source-quality scoring (tier/freshness/corroboration/citations)
+│   ├── conflict/   # Rule-based numeric / date / polarity conflict detection
 │   ├── traverse/   # Website crawling logic
 │   ├── bypass/     # Anti-detection, proxy handling
 │   └── security/   # Rate limiting, IP filtering
@@ -120,10 +127,10 @@ def register_search_tools(app: FastMCP):
 
 **Multi-Engine Search Architecture:**
 - Core implementation: `src/core/search/core/multi_engines.py`
-- Concurrent execution across Yahoo and DuckDuckGo using asyncio
+- Concurrent execution across DuckDuckGo, Bing, Yahoo, Mojeek, Wikipedia
+- Scrapling-backed TLS-fingerprint impersonation for Cloudflare-fronted engines
 - Automatic fallback when individual engines fail
 - Result deduplication by URL via `MultiSearchResult` class
-- Intelligent merging of results from multiple sources
 
 **Content Processing Pipeline:**
 - 6-tier fallback system in `src/core/content/extractors.py`
@@ -131,12 +138,12 @@ def register_search_tools(app: FastMCP):
 - Parser preference: selectolax (fastest) > lxml > html.parser
 - BeautifulSoup4 used for robustness with lxml backend
 
-**AI Integration (Optional):**
-- OpenRouter integration in `src/tools/research_modules/`
-- Used by `research_workflow` tool for AI-enhanced research
-- Model selection via `OPENROUTER_MODEL` env var (default: `nvidia/nemotron-3-nano-30b-a3b:free`)
-- Requires `OPENROUTER_API_KEY` for AI features
-- Graceful degradation when API key not provided
+**No LLM inside the server:**
+Every tool returns structured, auditable output. Synthesis is the
+caller's job. This is why tools like `entity_research` and
+`find_conflicts` return deterministic reports instead of free-form
+summaries -- the caller's model can reason over them; a consistent
+machine can't hallucinate them.
 
 **Middleware Stack:**
 Registered in `src/middleware/middleware.py::register_middleware()`:
@@ -181,10 +188,11 @@ app = FastMCP(
 
 ## Environment Variables
 
-All environment variables are optional - the system works without any configuration:
+All environment variables are optional — the system works without any configuration:
 
-- `OPENROUTER_API_KEY` - Enables AI-enhanced research features
-- `OPENROUTER_MODEL` - Override default AI model selection
+- `SEMANTIC_SCHOLAR_API_KEY` — re-enables the Semantic Scholar provider in
+  `scientific_research`. Disabled by default because the anonymous Graph
+  API is 429-rate-limited and OpenAlex covers the same surface with no key.
 - `ENVIRONMENT` - Set to `production` for HTTP transport
 - `PORT` - Server port for HTTP mode (default: 8000)
 - `LOG_LEVEL` - Logging verbosity (default: INFO)
@@ -240,7 +248,8 @@ skills/rival-search-mcp/
 └── resources/
     ├── search.md         # web_search, social_search, news_aggregation, github_search, map_website
     ├── content.md        # content_operations, document_analysis
-    └── research.md       # research_topic, scientific_research, research_agent
+    └── research.md       # research_topic, scientific_research, entity_research,
+                          # score_sources, find_conflicts
 ```
 
 ### How it works

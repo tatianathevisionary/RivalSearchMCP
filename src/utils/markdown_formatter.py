@@ -20,7 +20,7 @@ def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
     if total_results > 0:
         output += "💡 **Next Steps:**\n"
         output += "- Use `content_operations` to retrieve full content from discussion URLs\n"
-        output += "- Use `research_agent` to synthesize community insights\n\n"
+        output += "- Use `find_conflicts` to surface disagreements between sources\n\n"
         output += "---\n\n"
 
     # Reddit results
@@ -198,7 +198,7 @@ def format_news_markdown(
         output += "💡 **Next Steps:**\n"
         output += "- Use `content_operations` to retrieve full article content\n"
         output += "- Use `document_analysis` if articles link to PDFs\n"
-        output += "- Use `research_agent` for comprehensive news analysis\n\n"
+        output += "- Use `score_sources` to rate the returned URLs\n\n"
         output += "---\n\n"
 
     for i, article in enumerate(articles, 1):
@@ -241,7 +241,7 @@ def format_github_markdown(query: str, repositories: List[Dict[str, Any]]) -> st
         output += "💡 **Next Steps:**\n"
         output += "- Use `content_operations` to retrieve README files from repo URLs\n"
         output += "- Use `map_website` to explore repository documentation\n"
-        output += "- Use `research_agent` for comprehensive code/project analysis\n\n"
+        output += "- Use `entity_research` for a unified cross-source profile\n\n"
         output += "---\n\n"
 
     for i, repo in enumerate(repositories, 1):
@@ -292,7 +292,7 @@ def format_academic_search_markdown(results: Dict[str, Any]) -> str:
         output += "💡 **Next Steps:**\n"
         output += "- Use `document_analysis` to extract text from PDF links\n"
         output += "- Use `content_operations` to retrieve paper pages\n"
-        output += "- Use `research_agent` for comprehensive literature review\n\n"
+        output += "- Use `document_analysis` on PDF links for full text\n\n"
         output += "---\n\n"
 
     # Papers
