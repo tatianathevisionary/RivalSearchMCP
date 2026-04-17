@@ -18,17 +18,26 @@ from .providers.semantic_scholar import SemanticScholarProvider
 
 
 class AcademicSearchOrchestrator:
-    """Orchestrates academic paper searches across multiple providers."""
+    """Orchestrates academic paper searches across multiple providers.
+
+    Registers 5 providers by default. Semantic Scholar is only included
+    when `SEMANTIC_SCHOLAR_API_KEY` is set in the environment; without a
+    key that provider is 429-rate-limited into uselessness (OpenAlex
+    covers the same ~240M-work surface area without a key).
+    """
 
     def __init__(self):
+        import os
+
         self.providers = {
             "openalex": OpenAlexProvider(),
             "crossref": CrossRefProvider(),
-            "semantic_scholar": SemanticScholarProvider(),
             "arxiv": ArXivProvider(),
             "pubmed": PubMedProvider(),
             "europepmc": EuropePMCProvider(),
         }
+        if os.getenv("SEMANTIC_SCHOLAR_API_KEY", "").strip():
+            self.providers["semantic_scholar"] = SemanticScholarProvider()
 
     async def search_academic_papers(
         self, query: str, sources: List[str] = None, limit: int = 20, **kwargs

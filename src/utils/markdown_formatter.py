@@ -3,7 +3,7 @@ Utilities for formatting tool outputs as clean markdown.
 """
 
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
@@ -165,15 +165,35 @@ def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
     return output
 
 
-def format_news_markdown(query: str, articles: List[Dict[str, Any]], time_range: str) -> str:
-    """Format news aggregation results as clean markdown."""
+def format_news_markdown(
+    query: str,
+    articles: List[Dict[str, Any]],
+    time_range: str,
+    confidence: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Format news aggregation results as clean markdown.
+
+    `confidence` is the aggregate summary from
+    ``src.core.quality.summarize_quality``. When present, a
+    trust-signal header is rendered; per-article `quality` blocks are
+    folded into each item's metadata.
+    """
     output = f"# 📰 News Search Results for: *{query}*\n\n"
     output += f"**Found {len(articles)} news articles**\n\n"
     if time_range != "anytime":
         output += f"**Time Range:** {time_range}\n\n"
+
+    if confidence:
+        conf = confidence.get("confidence", "unknown")
+        badge = {"high": "🟢", "medium": "🟡", "low": "🔴", "none": "⚪"}.get(conf, "⚪")
+        output += (
+            f"**{badge} Confidence:** {conf} "
+            f"(mean score {confidence.get('mean_score', 0)}/100, "
+            f"{confidence.get('independent_domains', 0)} independent sources)\n\n"
+        )
+
     output += "---\n\n"
 
-    # Add workflow hint
     if len(articles) > 0:
         output += "💡 **Next Steps:**\n"
         output += "- Use `content_operations` to retrieve full article content\n"
@@ -183,6 +203,16 @@ def format_news_markdown(query: str, articles: List[Dict[str, Any]], time_range:
 
     for i, article in enumerate(articles, 1):
         output += f"## {i}. {article.get('title', 'Untitled')}\n\n"
+
+        # Quality chip for this article
+        q = article.get("quality") or {}
+        if q:
+            output += f"**Quality:** {q.get('score', 0)}/100 ({q.get('tier', '?')})"
+            sig = q.get("signals", {}) or {}
+            corroboration = sig.get("corroboration")
+            if corroboration:
+                output += f" · corroborated by {corroboration} other source(s)"
+            output += "\n\n"
 
         if article.get("source"):
             output += f"**Source:** {article['source']}"

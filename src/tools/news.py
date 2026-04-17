@@ -8,6 +8,7 @@ from typing import Literal
 from fastmcp import FastMCP
 
 from src.core.news import NewsAggregator
+from src.core.quality import assess_results, summarize_quality
 from src.logging.logger import logger
 from src.utils.markdown_formatter import format_news_markdown
 
@@ -58,7 +59,11 @@ def register_news_tools(mcp: FastMCP):
                 country=country,
                 time_range=time_range,
             )
-            return format_news_markdown(query, articles, time_range)
+            # Annotate each article with a quality score + expose an
+            # aggregate confidence summary. Rule-based, cheap, deterministic.
+            articles = assess_results(articles)
+            confidence = summarize_quality(articles)
+            return format_news_markdown(query, articles, time_range, confidence=confidence)
 
         except Exception as e:
             logger.error(f"News aggregation failed: {e}")

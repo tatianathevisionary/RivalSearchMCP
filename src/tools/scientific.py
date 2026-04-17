@@ -55,9 +55,12 @@ def register_scientific_tools(mcp: FastMCP):
           - arxiv            physics/math/CS/stats/q-bio/q-fin preprints
           - pubmed           NCBI biomedical index
           - europepmc        biomedical + bioRxiv/medRxiv preprints
-          - semantic_scholar rate-limited without an API key; set
-                             SEMANTIC_SCHOLAR_API_KEY to raise the quota.
-                             Gracefully skipped on 429.
+
+        semantic_scholar is no longer enabled by default -- the public
+        Graph API 429-rate-limits anonymous callers into uselessness and
+        there is no working scrape path (the SPA renders client-side).
+        OpenAlex covers the same ~240M-work surface area with no key.
+        Set SEMANTIC_SCHOLAR_API_KEY in the environment to re-enable it.
 
         Sources for dataset_discovery:
           - kaggle           Kaggle datasets list endpoint
@@ -76,8 +79,7 @@ def register_scientific_tools(mcp: FastMCP):
             if operation == "academic_search":
                 if sources is None:
                     # OpenAlex + CrossRef give broadest keyless coverage;
-                    # arxiv for preprints. Skip semantic_scholar by default
-                    # to avoid the shared 429 pool.
+                    # arxiv for preprints.
                     sources = ["openalex", "crossref", "arxiv"]
 
                 result = await academic_orchestrator.search_academic_papers(
