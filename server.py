@@ -24,6 +24,7 @@ from src.tools.analysis import register_analysis_tools
 from src.tools.conflict import register_conflict_tools
 from src.tools.entity import register_entity_tools
 from src.tools.github_tool import register_github_tools
+from src.tools.memory import register_memory_tools
 from src.tools.news import register_news_tools
 from src.tools.pdf_tool import register_pdf_tools
 from src.tools.quality import register_quality_tools
@@ -138,6 +139,7 @@ register_pdf_tools(app)
 register_quality_tools(app)
 register_entity_tools(app)
 register_conflict_tools(app)
+register_memory_tools(app)
 # OCR functionality is integrated into retrieval tools - no separate registration needed
 
 # Register prompts
