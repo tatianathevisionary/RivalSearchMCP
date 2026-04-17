@@ -1,12 +1,21 @@
 """
 Yahoo search engine implementation for RivalSearchMCP.
-Uses HTML format for most reliable results.
+
+The search-page request at search.yahoo.com is Cloudflare-fronted and
+TLS-fingerprints clients -- plain httpx is routinely downgraded to
+anti-bot interstitials with empty result bodies. Scrapling's
+AsyncFetcher with stealthy_headers=True drives tls_client with a real
+browser fingerprint, so Yahoo serves the normal SERP HTML.
+
+Result cards live inside div.algo-sr; the title is nested inside an
+h3 > span (hence .get_all_text() rather than .text). Content fetching
+for result URLs stays on the base httpx session.
 """
 
 from datetime import datetime
 from typing import List
 
-from bs4 import BeautifulSoup, Tag
+from scrapling.fetchers import AsyncFetcher
 
 from src.logging.logger import logger
 
@@ -14,10 +23,11 @@ from ...core.multi_engines import BaseSearchEngine, MultiSearchResult
 
 
 class YahooSearchEngine(BaseSearchEngine):
-    """Yahoo search engine implementation - HTML format only."""
+    """Yahoo search via search.yahoo.com (Scrapling-powered)."""
 
     def __init__(self):
         super().__init__("Yahoo", "https://search.yahoo.com")
+        self.search_url = f"{self.base_url}/search"
 
     async def search(
         self,
@@ -27,118 +37,92 @@ class YahooSearchEngine(BaseSearchEngine):
         follow_links: bool = True,
         max_depth: int = 2,
     ) -> List[MultiSearchResult]:
-        """Search Yahoo using HTML format (most reliable)."""
-        try:
-            logger.info(f"Starting Yahoo search for: {query}")
+        """Search Yahoo and optionally extract result-page content."""
+        logger.info("Starting Yahoo search for: %s", query)
 
-            # Use only HTML format (most reliable)
-            results = await self._search_html(query, num_results)
+        results = await self._search_html(query, num_results)
+        logger.info("Yahoo returned %d results", len(results))
 
-            if extract_content and results:
-                # Extract real URLs and fetch content
-                for result in results:
-                    result.real_url = self._extract_real_url(result.url)
+        if extract_content and results:
+            for result in results:
+                result.real_url = self._extract_real_url(result.url)
+                target_url = result.real_url if result.real_url != result.url else result.url
+                if not target_url:
+                    continue
 
-                    # Always fetch content when content extraction is enabled
-                    target_url = result.real_url if result.real_url != result.url else result.url
-                    if target_url:
-                        logger.info(f"Following link to: {target_url}")
-                        content = await self._fetch_page_content(target_url)
+                content = await self._fetch_page_content(target_url)
+                if not content:
+                    continue
 
-                        if content:
-                            # Extract main content using the enhanced multi-method approach
-                            result.full_content = self._extract_main_content(content)
-                            result.internal_links = self._extract_internal_links(
-                                content, target_url
-                            )
-                            result.html_structure = self._extract_html_structure(content)
+                result.full_content = self._extract_main_content(content)
+                result.internal_links = self._extract_internal_links(content, target_url)
+                result.html_structure = self._extract_html_structure(content)
 
-                            if follow_links and result.internal_links and max_depth > 1:
-                                result.second_level_content = (
-                                    await self._extract_second_level_content(
-                                        target_url, result.internal_links
-                                    )
-                                )
+                if follow_links and result.internal_links and max_depth > 1:
+                    result.second_level_content = await self._extract_second_level_content(
+                        target_url, result.internal_links
+                    )
 
-            logger.info(f"Yahoo search completed: {len(results)} results with content extraction")
-            return results
-
-        except Exception as e:
-            logger.error(f"Yahoo search failed: {e}")
-            return []
+        return results
 
     async def _search_html(self, query: str, num_results: int) -> List[MultiSearchResult]:
-        """Search using HTML format (most reliable)."""
-        from src.utils.agents import get_random_user_agent
-
-        search_url = f"{self.base_url}/search"
+        """Query search.yahoo.com via Scrapling and parse result cards."""
         params = {
             "p": query,
             "n": min(num_results, 50),
             "ei": "UTF-8",
             "fr": "yfp-t",
         }
-        headers = {"User-Agent": get_random_user_agent()}
+        # Build URL with params since Scrapling.get doesn't take a params dict
+        from urllib.parse import urlencode
+
+        url = f"{self.search_url}?{urlencode(params)}"
 
         try:
-            response = await self.session.get(search_url, params=params, headers=headers)
-            response.raise_for_status()
-
-            soup = BeautifulSoup(response.text, "html.parser")
-            results = []
-
-            # Find result containers
-            result_containers = soup.find_all("div", class_="dd")
-            if not result_containers:
-                # Try alternative selectors
-                result_containers = soup.find_all("div", class_="algo")
-
-            for i, container in enumerate(result_containers[:num_results]):
-                try:
-                    if isinstance(container, Tag):
-                        # Extract title and link
-                        title_elem = container.find("a")
-
-                        if (
-                            isinstance(title_elem, Tag)
-                            and hasattr(title_elem, "get_text")
-                            and callable(getattr(title_elem, "get_text"))
-                        ):
-                            title = self._clean_text(title_elem.get_text())
-                            url = title_elem.get("href", "")
-
-                            # Extract description
-                            desc_elem = container.find("div", class_="compText")
-                            if not desc_elem:
-                                desc_elem = container.find("span", class_="st")
-
-                            description = ""
-                            if (
-                                isinstance(desc_elem, Tag)
-                                and hasattr(desc_elem, "get_text")
-                                and callable(getattr(desc_elem, "get_text"))
-                            ):
-                                description = self._clean_text(desc_elem.get_text())
-
-                            if title and url:
-                                results.append(
-                                    MultiSearchResult(
-                                        title=title,
-                                        url=str(url),
-                                        description=description,
-                                        engine=self.name,
-                                        position=i + 1,
-                                        timestamp=datetime.now().isoformat(),
-                                        html_structure=self._extract_html_structure(str(container)),
-                                        raw_html=str(container),
-                                    )
-                                )
-                except Exception as e:
-                    logger.debug(f"Failed to parse result {i}: {e}")
-                    continue
-
-            return results
-
+            page = await AsyncFetcher.get(url, stealthy_headers=True, timeout=30)
         except Exception as e:
-            logger.error(f"Yahoo HTML search failed: {e}")
+            logger.error("Yahoo fetch failed: %s", e)
             return []
+
+        if page.status != 200:
+            logger.warning(
+                "Yahoo returned %s for %r (body snippet: %s)",
+                page.status,
+                query,
+                (page.body or b"")[:200],
+            )
+            return []
+
+        results: List[MultiSearchResult] = []
+        cards = page.css("div.algo-sr")
+        for i, card in enumerate(cards[:num_results]):
+            # Title is inside h3 > span. Use get_all_text so the nested
+            # span content is included (.text would return empty).
+            h3_nodes = card.css("h3")
+            if not h3_nodes:
+                continue
+            title = self._clean_text(h3_nodes[0].get_all_text() or "")
+
+            link_nodes = card.css("div.compTitle a.d-ib")
+            if not link_nodes:
+                continue
+            url = link_nodes[0].attrib.get("href", "")
+            if not title or not url:
+                continue
+
+            desc_nodes = card.css("div.compText, p.s-desc, span.fc-falcon")
+            description = self._clean_text(desc_nodes[0].get_all_text() or "") if desc_nodes else ""
+
+            results.append(
+                MultiSearchResult(
+                    title=title,
+                    url=url,
+                    description=description,
+                    engine=self.name,
+                    position=i + 1,
+                    timestamp=datetime.now().isoformat(),
+                    html_structure={},
+                    raw_html="",
+                )
+            )
+        return results

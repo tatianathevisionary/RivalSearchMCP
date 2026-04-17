@@ -9,21 +9,27 @@ from typing import Any, Dict
 
 from fastmcp import Context
 
+from src.core.search.engines.bing.bing_engine import BingSearchEngine
 from src.core.search.engines.duckduckgo.duckduckgo_engine import DuckDuckGoSearchEngine
+from src.core.search.engines.mojeek.mojeek_engine import MojeekSearchEngine
 from src.core.search.engines.wikipedia.wikipedia_engine import WikipediaSearchEngine
+from src.core.search.engines.yahoo.yahoo_engine import YahooSearchEngine
 from src.logging.logger import logger
 from src.utils.markdown_formatter import format_multi_search_markdown
 
 
 class MultiSearchOrchestrator:
-    """Orchestrates searches across multiple engines with fallback support."""
+    """Orchestrates concurrent searches across five engines."""
 
     def __init__(self):
         self.engines = {
             "duckduckgo": DuckDuckGoSearchEngine(),
+            "bing": BingSearchEngine(),
+            "yahoo": YahooSearchEngine(),
+            "mojeek": MojeekSearchEngine(),
             "wikipedia": WikipediaSearchEngine(),
         }
-        self.engine_order = ["duckduckgo", "wikipedia"]
+        self.engine_order = ["duckduckgo", "bing", "yahoo", "mojeek", "wikipedia"]
 
     async def search_all_engines(
         self,

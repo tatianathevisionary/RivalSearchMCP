@@ -3,9 +3,10 @@ News aggregation across multiple keyless sources.
 
 Sources, all verified live before adding:
   - google_news  -> news.google.com/rss/search  (httpx + feedparser)
-  - bing_news    -> bing.com/news/search?format=RSS  (subprocess curl -- httpx/h2
-                    gets 0 items because Bing TLS-fingerprints clients; curl's
-                    fingerprint is allow-listed)
+  - bing_news    -> bing.com/news/search?format=RSS  (Scrapling AsyncFetcher
+                    with stealthy_headers -- httpx gets 0 items because Bing
+                    TLS-fingerprints plain-Python clients; Scrapling drives
+                    tls_client under the hood with a real browser fingerprint)
   - guardian     -> content.guardianapis.com  (httpx, public api-key="test")
   - gdelt        -> api.gdeltproject.org/api/v2/doc  (httpx, global; rate
                     limited to one request per 5 seconds per IP)
@@ -16,7 +17,6 @@ Every source honors the same `time_range` filter ("day" / "week" / "month" /
 """
 
 import asyncio
-import subprocess
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote_plus
@@ -157,9 +157,12 @@ class NewsAggregator:
     async def _bing_news(
         self, query: str, max_results: int, time_range: str
     ) -> List[Dict[str, Any]]:
-        # Bing silently returns 0 items to httpx (TLS fingerprinting). Shell
-        # out to curl, whose fingerprint is accepted. The freshness operator
-        # is passed via `qft=interval:` in the URL.
+        # Bing silently returns 0 items to plain httpx because it
+        # TLS-fingerprints clients. Scrapling's AsyncFetcher drives
+        # tls_client with a real browser fingerprint, so the RSS body is
+        # populated. No subprocess, no headless browser.
+        from scrapling.fetchers import AsyncFetcher
+
         qft = {
             "day": "+filterui:age-lt24h",
             "week": "+filterui:age-lt1week",
@@ -168,28 +171,15 @@ class NewsAggregator:
         params = f"?q={quote_plus(query)}&format=RSS" + (f"&qft={qft}" if qft else "")
         url = f"https://www.bing.com/news/search{params}"
         try:
-            proc = await asyncio.create_subprocess_exec(
-                "curl",
-                "-sS",
-                "-A",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/131.0.0.0 Safari/537.36",
-                "--max-time",
-                "20",
-                url,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=25)
-            if proc.returncode != 0:
+            page = await AsyncFetcher.get(url, stealthy_headers=True, timeout=20)
+            if page.status != 200:
                 logger.warning(
-                    "bing_news curl exit=%s stderr=%s",
-                    proc.returncode,
-                    stderr.decode(errors="replace")[:200],
+                    "bing_news returned %s (body snippet: %s)",
+                    page.status,
+                    page.body[:200] if page.body else b"",
                 )
                 return []
-            feed = feedparser.parse(stdout)
+            feed = feedparser.parse(page.body)
             out = []
             for entry in feed.entries[:max_results]:
                 out.append(
@@ -204,11 +194,8 @@ class NewsAggregator:
                 )
             logger.info("bing_news: %d for %r", len(out), query)
             return out
-        except (subprocess.SubprocessError, FileNotFoundError, asyncio.TimeoutError) as e:
-            logger.warning("bing_news subprocess failed: %s", e)
-            return []
         except Exception:
-            logger.exception("bing_news unexpected error")
+            logger.exception("bing_news failed")
             return []
 
     # ---------------------------------------------------------------- Guardian

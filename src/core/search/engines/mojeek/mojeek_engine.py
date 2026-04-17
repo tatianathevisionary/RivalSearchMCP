@@ -1,15 +1,14 @@
 """
-DuckDuckGo search engine implementation for RivalSearchMCP.
+Mojeek web search engine via www.mojeek.com/search.
 
-The search-page request at html.duckduckgo.com is fronted by DDG's
-anti-bot layer, which returns HTTP 202 + an empty results page to
-plain httpx (Python's default TLS fingerprint is not a browser).
-Scrapling's AsyncFetcher with stealthy_headers=True drives tls_client
-with a real browser fingerprint and a realistic header set, so DDG
-serves the normal results HTML.
+Mojeek operates its own independent index (not a Google/Bing wrapper)
+and exposes real full-text search through a plain HTML SERP. Accepts
+standard requests fine, but we still route through Scrapling for
+consistency with the other engines and because its header defaults
+match what Mojeek expects.
 
-Content fetching for result URLs stays on httpx (BaseSearchEngine's
-shared session); most target sites don't bot-check us.
+Result cards are `ul.results-standard > li`; title link is `h2 a`
+(direct link, no redirector unlike Bing); snippet is `p.s`.
 """
 
 from datetime import datetime
@@ -22,12 +21,12 @@ from src.logging.logger import logger
 from ...core.multi_engines import BaseSearchEngine, MultiSearchResult
 
 
-class DuckDuckGoSearchEngine(BaseSearchEngine):
-    """DuckDuckGo search via html.duckduckgo.com (Scrapling-powered)."""
+class MojeekSearchEngine(BaseSearchEngine):
+    """Mojeek independent web search (Scrapling-powered)."""
 
     def __init__(self):
-        super().__init__("DuckDuckGo", "https://duckduckgo.com")
-        self.search_url = "https://html.duckduckgo.com/html/"
+        super().__init__("Mojeek", "https://www.mojeek.com")
+        self.search_url = f"{self.base_url}/search"
 
     async def search(
         self,
@@ -37,11 +36,10 @@ class DuckDuckGoSearchEngine(BaseSearchEngine):
         follow_links: bool = True,
         max_depth: int = 2,
     ) -> List[MultiSearchResult]:
-        """Search DuckDuckGo and optionally extract result-page content."""
-        logger.info("Starting DuckDuckGo search for: %s", query)
+        logger.info("Starting Mojeek search for: %s", query)
 
         results = await self._search_html(query, num_results)
-        logger.info("DuckDuckGo returned %d results", len(results))
+        logger.info("Mojeek returned %d results", len(results))
 
         if extract_content and results:
             for result in results:
@@ -66,44 +64,41 @@ class DuckDuckGoSearchEngine(BaseSearchEngine):
         return results
 
     async def _search_html(self, query: str, num_results: int) -> List[MultiSearchResult]:
-        """Query html.duckduckgo.com via Scrapling and parse result cards."""
         try:
             page = await AsyncFetcher.get(
-                f"{self.search_url}?q={query}",
+                self.search_url,
+                params={"q": query, "fmt": "html"},
                 stealthy_headers=True,
                 timeout=30,
             )
         except Exception as e:
-            logger.error("DuckDuckGo fetch failed: %s", e)
+            logger.error("Mojeek fetch failed: %s", e)
             return []
 
         if page.status != 200:
             logger.warning(
-                "DuckDuckGo returned %s for %r (body snippet: %s)",
+                "Mojeek returned %s for %r (body snippet: %s)",
                 page.status,
                 query,
-                (page.text or "")[:200],
+                (page.body or b"")[:200],
             )
             return []
 
         results: List[MultiSearchResult] = []
-        # DDG html page: results are <div class="result"> with an
-        # <a class="result__a"> title link and <a class="result__snippet">
-        # snippet. Scrapling .css returns a Selectors list (not a single
-        # element), so index into it.
-        cards = page.css("div.result")
+        cards = page.css("ul.results-standard > li")
         for i, card in enumerate(cards[:num_results]):
-            title_links = card.css("a.result__a")
+            title_links = card.css("h2 a")
             if not title_links:
                 continue
-            title_link = title_links[0]
-            title = self._clean_text(title_link.text or "")
-            url = title_link.attrib.get("href", "")
+            title = self._clean_text(title_links[0].get_all_text() or "")
+            url = title_links[0].attrib.get("href", "")
             if not title or not url:
                 continue
 
-            snippet_els = card.css("a.result__snippet, div.result__snippet")
-            description = self._clean_text(snippet_els[0].text) if snippet_els else ""
+            snippet_nodes = card.css("p.s")
+            description = (
+                self._clean_text(snippet_nodes[0].get_all_text() or "") if snippet_nodes else ""
+            )
 
             results.append(
                 MultiSearchResult(
