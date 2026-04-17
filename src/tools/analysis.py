@@ -7,7 +7,9 @@ import asyncio
 import re
 from typing import Annotated, Any, Dict, List, Literal, Optional
 
-from fastmcp import FastMCP
+from fastmcp import Context, FastMCP
+from fastmcp.exceptions import ToolError
+from fastmcp.tools.tool import ToolResult
 from pydantic import Field
 
 from src.core.conflict import find_conflicts as _find_conflicts_core
@@ -33,7 +35,16 @@ ResearchMode = Literal["topic", "entity"]
 def register_analysis_tools(mcp: FastMCP):
     """Register consolidated content operations tool."""
 
-    @mcp.tool
+    @mcp.tool(
+        annotations={
+            "title": "Content Operations",
+            "readOnlyHint": True,
+            "openWorldHint": True,
+            "destructiveHint": False,
+            "idempotentHint": False,
+        },
+        timeout=90.0,
+    )
     async def content_operations(
         operation: Annotated[
             ContentOperation,
@@ -126,7 +137,8 @@ def register_analysis_tools(mcp: FastMCP):
             bool,
             Field(description="Include metadata in the response.", default=True),
         ] = True,
-    ) -> str:
+        ctx: Optional[Context] = None,
+    ) -> ToolResult | str:
         """
         One tool for every URL/content-level operation. Pick `operation`,
         provide whichever of `url`, `urls`, `content` that operation
@@ -148,40 +160,44 @@ def register_analysis_tools(mcp: FastMCP):
 
             if operation == "retrieve":
                 if not url:
-                    raise ValueError("URL required for retrieve operation")
-                # Real content retrieval implementation with retry logic
-                from src.core.fetch import base_fetch_url
-                from src.utils import clean_html_to_markdown
+                    raise ToolError("URL required for retrieve operation")
+
+                # Dispatch on extraction_method to the right shared-client
+                # helper. Scrapling's parser handles sites (Wikipedia, etc.)
+                # where the previous BeautifulSoup+custom converter silently
+                # produced empty output.
+                from src.utils.scrapling_client import (
+                    fetch_html,
+                    fetch_markdown,
+                    fetch_text,
+                )
 
                 max_retries = 3
-                content = None
+                result: Optional[str] = None
                 for attempt in range(max_retries):
                     try:
-                        content = await base_fetch_url(url)
-                        if content:
+                        if extraction_method == "html":
+                            result = await fetch_html(url)
+                        elif extraction_method == "text":
+                            result = await fetch_text(url)
+                        else:  # markdown / auto
+                            result = await fetch_markdown(url)
+                        if result:
                             break
                     except Exception as e:
                         logger.warning(f"Content retrieval attempt {attempt + 1} failed: {e}")
                         if attempt < max_retries - 1:
                             await asyncio.sleep(1)
 
-                if content:
-                    if extraction_method == "html":
-                        result = str(content)
-                    elif extraction_method == "text":
-                        result = clean_html_to_markdown(str(content), url)
-                    elif extraction_method == "markdown":
-                        result = clean_html_to_markdown(str(content), url)
-                    else:  # auto
-                        result = clean_html_to_markdown(str(content), url)
-                else:
-                    result = f"Failed to retrieve content from {url} after {max_retries} attempts"
-
+                if not result:
+                    result = (
+                        f"Failed to retrieve content from {url} after " f"{max_retries} attempts"
+                    )
                 return result
 
             elif operation == "stream":
                 if not url:
-                    raise ValueError("URL required for stream operation")
+                    raise ToolError("URL required for stream operation")
                 # Real streaming implementation with retry logic
                 from src.core.fetch import stream_fetch
 
@@ -206,7 +222,7 @@ def register_analysis_tools(mcp: FastMCP):
 
             elif operation == "analyze":
                 if not content:
-                    raise ValueError("Content required for analyze operation")
+                    raise ToolError("Content required for analyze operation")
 
                 # Basic content analysis
                 analysis_result = {
@@ -333,7 +349,7 @@ def register_analysis_tools(mcp: FastMCP):
 
             elif operation == "extract":
                 if not url:
-                    raise ValueError("URL required for extract operation")
+                    raise ToolError("URL required for extract operation")
 
                 # Real link extraction implementation
                 from urllib.parse import urljoin, urlparse
@@ -472,9 +488,9 @@ def register_analysis_tools(mcp: FastMCP):
 
             elif operation == "score":
                 if not urls:
-                    raise ValueError("urls list required for score operation")
+                    raise ToolError("urls list required for score operation")
                 if len(urls) > 50:
-                    raise ValueError("score operation accepts at most 50 urls")
+                    raise ToolError("score operation accepts at most 50 urls")
 
                 # Align optional metadata
                 md = list(metadata or [])
@@ -488,28 +504,31 @@ def register_analysis_tools(mcp: FastMCP):
                     f"{r['quality']['score']}/100 ({r['quality']['tier']}) — {r['url']}"
                     for r in annotated
                 ]
-                return format_research_analysis_markdown(
-                    {
-                        "topic": "Source Quality Scores",
-                        "summary": (
-                            f"Confidence {summary['confidence']} · "
-                            f"mean {summary['mean_score']}/100 · "
-                            f"{summary['independent_domains']} independent domains across "
-                            f"{summary['result_count']} sources"
-                        ),
-                        "key_findings": findings,
-                        "quality_details": [{"url": r["url"], **r["quality"]} for r in annotated],
-                        "confidence": summary,
-                        "status": "success",
-                    },
-                    "Content Operations",
+                payload = {
+                    "topic": "Source Quality Scores",
+                    "summary": (
+                        f"Confidence {summary['confidence']} · "
+                        f"mean {summary['mean_score']}/100 · "
+                        f"{summary['independent_domains']} independent domains across "
+                        f"{summary['result_count']} sources"
+                    ),
+                    "key_findings": findings,
+                    "quality_details": [{"url": r["url"], **r["quality"]} for r in annotated],
+                    "confidence": summary,
+                    "status": "success",
+                }
+                # Dual-channel return: LLMs read the markdown (content),
+                # agents parse the raw scores from structured_content.
+                return ToolResult(
+                    content=format_research_analysis_markdown(payload, "Content Operations"),
+                    structured_content=payload,
                 )
 
             elif operation == "find_conflicts":
                 if not urls or len(urls) < 2:
-                    raise ValueError("find_conflicts requires a list of at least 2 urls")
+                    raise ToolError("find_conflicts requires a list of at least 2 urls")
                 if len(urls) > 10:
-                    raise ValueError("find_conflicts accepts at most 10 urls per call")
+                    raise ToolError("find_conflicts accepts at most 10 urls per call")
 
                 # Fetch each URL via Scrapling (TLS-fingerprint safe) with
                 # an httpx fallback, extract clean text, cap at 8000 chars
@@ -520,34 +539,73 @@ def register_analysis_tools(mcp: FastMCP):
 
                 extractor = UnifiedContentExtractor()
 
+                # Progress: report once per source as it lands. Using a
+                # counter + lock-free increment because asyncio.gather
+                # coroutines run on the same thread in the event loop.
+                fetch_total = len(urls)
+                fetched = 0
+
                 async def _snippet(target_url: str) -> str:
+                    nonlocal fetched
                     try:
-                        page = await AsyncFetcher.get(target_url, stealthy_headers=True, timeout=20)
-                        if page.status == 200 and page.body:
-                            text = page.text or page.body.decode("utf-8", "replace")
-                            return extractor.extract(text)[:8000]
-                    except Exception as e:
-                        logger.debug(
-                            "find_conflicts Scrapling fetch failed for %s: %s",
-                            target_url,
-                            e,
+                        try:
+                            page = await AsyncFetcher.get(
+                                target_url, stealthy_headers=True, timeout=20
+                            )
+                            if page.status == 200 and page.body:
+                                text = page.text or page.body.decode("utf-8", "replace")
+                                return extractor.extract(text)[:8000]
+                        except Exception as e:
+                            logger.debug(
+                                "find_conflicts Scrapling fetch failed for %s: %s",
+                                target_url,
+                                e,
+                            )
+                        try:
+                            import httpx
+
+                            async with httpx.AsyncClient(
+                                timeout=20.0,
+                                follow_redirects=True,
+                                headers={"User-Agent": "rivalsearchmcp/1.0"},
+                            ) as client:
+                                r = await client.get(target_url)
+                                if r.status_code == 200:
+                                    return extractor.extract(r.text)[:8000]
+                        except Exception as e:
+                            logger.warning("find_conflicts fetch failed for %s: %s", target_url, e)
+                        return ""
+                    finally:
+                        fetched += 1
+                        if ctx is not None:
+                            try:
+                                await ctx.report_progress(
+                                    progress=fetched,
+                                    total=fetch_total,
+                                    message=f"fetched {fetched}/{fetch_total} sources",
+                                )
+                            except Exception:
+                                pass
+
+                if ctx is not None:
+                    try:
+                        await ctx.report_progress(
+                            progress=0,
+                            total=fetch_total,
+                            message=f"fetching {fetch_total} sources",
                         )
-                    try:
-                        import httpx
-
-                        async with httpx.AsyncClient(
-                            timeout=20.0,
-                            follow_redirects=True,
-                            headers={"User-Agent": "rivalsearchmcp/1.0"},
-                        ) as client:
-                            r = await client.get(target_url)
-                            if r.status_code == 200:
-                                return extractor.extract(r.text)[:8000]
-                    except Exception as e:
-                        logger.warning("find_conflicts fetch failed for %s: %s", target_url, e)
-                    return ""
-
+                    except Exception:
+                        pass
                 snippets = await asyncio.gather(*[_snippet(u) for u in urls])
+                if ctx is not None:
+                    try:
+                        await ctx.report_progress(
+                            progress=fetch_total,
+                            total=fetch_total,
+                            message="detecting conflicts",
+                        )
+                    except Exception:
+                        pass
                 report = _find_conflicts_core([s for s in snippets], claim=claim)
 
                 findings: List[str] = []
@@ -560,28 +618,29 @@ def register_analysis_tools(mcp: FastMCP):
                 if not findings:
                     findings = ["No conflicts detected across the provided sources."]
 
-                return format_research_analysis_markdown(
-                    {
-                        "topic": (
-                            f"Conflict Analysis ({len(urls)} sources)"
-                            + (f" — claim: {claim!r}" if claim else "")
-                        ),
-                        "summary": (
-                            f"{len(report.conflicts)} disagreement(s) detected "
-                            f"across {len(urls)} sources. "
-                            f"{len(report.agreements)} agreement record(s)."
-                        ),
-                        "key_findings": findings,
-                        "sources": [{"title": url, "url": url} for url in urls],
-                        "conflicts": [c.as_dict() for c in report.conflicts],
-                        "agreements": report.agreements,
-                        "status": "success",
-                    },
-                    "Content Operations",
+                payload = {
+                    "topic": (
+                        f"Conflict Analysis ({len(urls)} sources)"
+                        + (f" — claim: {claim!r}" if claim else "")
+                    ),
+                    "summary": (
+                        f"{len(report.conflicts)} disagreement(s) detected "
+                        f"across {len(urls)} sources. "
+                        f"{len(report.agreements)} agreement record(s)."
+                    ),
+                    "key_findings": findings,
+                    "sources": [{"title": url, "url": url} for url in urls],
+                    "conflicts": [c.as_dict() for c in report.conflicts],
+                    "agreements": report.agreements,
+                    "status": "success",
+                }
+                return ToolResult(
+                    content=format_research_analysis_markdown(payload, "Content Operations"),
+                    structured_content=payload,
                 )
 
             else:
-                raise ValueError(f"Unknown operation: {operation}")
+                raise ToolError(f"Unknown operation: {operation}")
 
         except Exception as e:
             logger.error(f"Content operations failed: {e}")
@@ -600,7 +659,20 @@ def register_analysis_tools(mcp: FastMCP):
             "Content Operations",
         )
 
-    @mcp.tool
+    @mcp.tool(
+        annotations={
+            "title": "Research Topic",
+            "readOnlyHint": True,
+            "openWorldHint": True,
+            "destructiveHint": False,
+            "idempotentHint": False,
+        },
+        # Entity mode fans out to up to 8 sub-sources in parallel, each
+        # with its own ~30s HTTP timeout. Topic mode is faster but also
+        # chains search + per-result content fetch. 180s is a generous
+        # ceiling -- the real constraint is each sub-source's own budget.
+        timeout=180.0,
+    )
     async def research_topic(
         topic: Annotated[
             str,
@@ -666,6 +738,7 @@ def register_analysis_tools(mcp: FastMCP):
                 default=None,
             ),
         ] = None,
+        ctx: Optional[Context] = None,
     ) -> str:
         """
         End-to-end deterministic research workflow. One tool, two modes:
@@ -679,7 +752,9 @@ def register_analysis_tools(mcp: FastMCP):
         """
         try:
             if mode == "entity":
-                return await _run_entity_mode(topic, max_sources=max_sources, session_id=session_id)
+                return await _run_entity_mode(
+                    topic, max_sources=max_sources, session_id=session_id, ctx=ctx
+                )
             return await _run_topic_mode(
                 topic,
                 sources=sources,
@@ -719,9 +794,11 @@ async def _run_topic_mode(
     include_analysis: bool,
     session_id: Optional[str],
 ) -> str:
-    """Original research_topic behaviour: search + fetch + extract, now
-    with automatic quality scoring and optional session memory."""
-    from src.core.fetch import base_fetch_url
+    """Topic research: search + fetch + extract key findings, with
+    automatic quality scoring and optional session memory. Routes
+    through the shared Scrapling client so Cloudflare/Akamai-fronted
+    sites respond 200 instead of 403."""
+    from src.utils.scrapling_client import fetch_text
 
     logger.info("Starting comprehensive research on: %s", topic)
 
@@ -737,14 +814,29 @@ async def _run_topic_mode(
     sources_researched: List[Dict[str, Any]] = []
     key_findings: List[str] = []
 
+    # Relevance-weighted sentence selection:
+    # the longer the sentence AND the more query tokens it contains,
+    # the more it contributes to the score. Replaces the old keyword-gated
+    # filter that missed substantive sentences lacking the exact words
+    # "important / key / critical / significant".
+    query_tokens = {t.lower() for t in re.findall(r"[A-Za-z][A-Za-z0-9]{2,}", topic)}
+
+    def _rank_sentence(s: str) -> float:
+        if len(s) < 40 or len(s) > 600:
+            return 0.0
+        lower = s.lower()
+        tok_hits = sum(1 for t in query_tokens if t in lower) if query_tokens else 0
+        # Density-ish signal: hits × log(length).
+        import math
+
+        length_score = math.log10(max(1, len(s)) + 1) - 1.5  # 0 at ~30 chars
+        return max(0.0, length_score) * (1 + 0.5 * tok_hits)
+
     for source_url in sources:
         try:
-            content = await base_fetch_url(source_url)
-            if not content:
+            clean_content = await fetch_text(source_url)
+            if not clean_content:
                 continue
-            from src.utils import clean_html_to_markdown
-
-            clean_content = clean_html_to_markdown(str(content), source_url)
             sources_researched.append(
                 {
                     "url": source_url,
@@ -754,17 +846,13 @@ async def _run_topic_mode(
                 }
             )
             if include_analysis:
-                sentences = re.split(r"[.!?]+", clean_content)
-                key_sentences = [
-                    s.strip()
-                    for s in sentences
-                    if len(s.strip()) > 50
-                    and any(
-                        word in s.lower()
-                        for word in ("important", "key", "critical", "significant")
-                    )
-                ]
-                key_findings.extend(key_sentences[:3])
+                sentences = re.split(r"(?<=[.!?])\s+", clean_content)
+                ranked = sorted(
+                    ((s.strip(), _rank_sentence(s)) for s in sentences),
+                    key=lambda pair: pair[1],
+                    reverse=True,
+                )
+                key_findings.extend(s for s, score in ranked[:3] if score > 0)
         except Exception as e:
             logger.warning("Failed to retrieve content from %s: %s", source_url, e)
 
@@ -799,11 +887,24 @@ async def _run_topic_mode(
     )
 
 
+async def _report(ctx: Optional[Context], progress: float, total: float, message: str) -> None:
+    """Best-effort progress reporter. Silent if no context is bound or the
+    client doesn't care. Keeps phase-boundary calls from having to repeat
+    the same try/except boilerplate."""
+    if ctx is None:
+        return
+    try:
+        await ctx.report_progress(progress=progress, total=total, message=message)
+    except Exception:
+        pass
+
+
 async def _run_entity_mode(
     entity: str,
     *,
     max_sources: int,
     session_id: Optional[str],
+    ctx: Optional[Context] = None,
 ) -> str:
     """Unified cross-source entity profile: web + news + github + social
     + academic fanned out in parallel, per-result quality, aggregate
@@ -849,9 +950,16 @@ async def _run_entity_mode(
     except Exception as e:
         logger.debug("github fan-out skipped: %s", e)
 
+    # 4 phases: fan-out, normalize, score, aggregate. Reported on a 0-100
+    # scale so clients can render a consistent bar regardless of how many
+    # sub-sources ran this time.
+    await _report(ctx, 10, 100, f"fanning out to {len(tasks)} sources")
+
     names = list(tasks.keys())
     outs = await asyncio.gather(*tasks.values(), return_exceptions=True)
     by_name = dict(zip(names, outs))
+
+    await _report(ctx, 55, 100, "fan-out complete, normalizing results")
 
     sections: Dict[str, List[Dict[str, Any]]] = {
         "web": [],
@@ -904,6 +1012,8 @@ async def _run_entity_mode(
     elif academic:
         sections["academic"] = list(academic)
 
+    await _report(ctx, 75, 100, "scoring results")
+
     for key in list(sections.keys()):
         sections[key] = assess_results(sections[key])[:max_sources]
 
@@ -914,6 +1024,8 @@ async def _run_entity_mode(
     )
     confidence = summarize_quality(union_annotated)
 
+    await _report(ctx, 90, 100, "aggregating confidence")
+
     # Flatten for auto-save
     flat_findings: List[Dict[str, Any]] = []
     for section_name, items in sections.items():
@@ -922,6 +1034,7 @@ async def _run_entity_mode(
             enriched.setdefault("section", section_name)
             flat_findings.append(enriched)
     await _auto_save(session_id, flat_findings)
+    await _report(ctx, 100, 100, "done")
 
     # Render a structured multi-section report
     md = f"# 🗺️ Entity Profile: *{entity}*\n\n"

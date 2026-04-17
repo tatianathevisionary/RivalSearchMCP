@@ -4,7 +4,7 @@ Base fetching functionality for RivalSearchMCP.
 Core URL fetching with optimized performance.
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Optional
 
 from src.logging.logger import logger
 from src.utils import get_http_client
@@ -15,38 +15,50 @@ STREAM_TIMEOUT = 30.0
 
 async def base_fetch_url(url: str) -> Optional[str]:
     """
-    Fetch content from a URL with optimized performance and caching.
+    Fetch raw HTML for a URL with caching.
 
-    Args:
-        url: URL to fetch
+    Delegates to src.utils.scrapling_client.fetch_html — one place in
+    the codebase that knows how to survive Cloudflare / Akamai TLS
+    fingerprinting so Wikipedia / Reddit / major publishers respond
+    200 instead of 403. Falls back to plain httpx only if the
+    Scrapling path fails.
 
     Returns:
-        HTML content or None if failed
+        HTML content or None if every path failed.
     """
     from src.core.cache.cache_manager import get_cache_manager
+    from src.utils.scrapling_client import fetch_html
+
+    cache_manager = get_cache_manager()
+    cache_key = f"url_content:{url}"
 
     try:
-        # Create cache key for URL content
-        cache_key = f"url_content:{url}"
-        cache_manager = get_cache_manager()
-
-        # Check cache first (TTL: 1 hour for web content)
         cached_content = await cache_manager.get(cache_key)
         if cached_content:
             logger.debug(f"Using cached content for {url}")
             return cached_content
+    except Exception as e:
+        logger.debug(f"Cache read failed for {url}: {e}")
 
-        # Fetch content
+    content = await fetch_html(url, timeout=int(STREAM_TIMEOUT))
+    if content:
+        try:
+            await cache_manager.set(cache_key, content, ttl_seconds=3600)
+        except Exception:
+            pass
+        return content
+
+    # httpx fallback: small set of endpoints prefer a plain client.
+    try:
         client = await get_http_client()
         response = await client.get(url, timeout=STREAM_TIMEOUT)
         response.raise_for_status()
         content = response.text
-
-        # Cache the content (TTL: 1 hour)
-        await cache_manager.set(cache_key, content, ttl_seconds=3600)
-
+        try:
+            await cache_manager.set(cache_key, content, ttl_seconds=3600)
+        except Exception:
+            pass
         return content
-
     except Exception as e:
         logger.error(f"Failed to fetch {url}: {e}")
         return None
@@ -80,64 +92,3 @@ async def stream_fetch(
     except Exception as e:
         logger.error(f"Stream fetch failed for {url}: {e}")
         return None
-
-
-# Unified Fetcher Classes
-class BaseFetcher:
-    """Base class for all fetchers."""
-
-    def __init__(self):
-        """Initialize the fetcher."""
-        pass
-
-    async def fetch(self, resource: str, **kwargs) -> Any:
-        """Fetch content using the fetcher's method."""
-        raise NotImplementedError("Subclasses must implement fetch method")
-
-
-class URLFetcher(BaseFetcher):
-    """Base URL fetching with optimized performance."""
-
-    async def fetch(self, url: str, **kwargs) -> Optional[str]:
-        """Fetch content from a URL with optimized performance."""
-        return await base_fetch_url(url, **kwargs)
-
-
-class BatchFetcher(BaseFetcher):
-    """Batch URL fetching with concurrency control."""
-
-    async def fetch(self, urls: List[str], **kwargs) -> List[Dict[str, Any]]:
-        """Batch retrieve content from multiple URLs with concurrency control."""
-        from .batch import batch_rival_retrieve
-
-        return await batch_rival_retrieve(urls, **kwargs)
-
-
-class EnhancedFetcher(BaseFetcher):
-    """Enhanced fetching with search integration and fallback logic."""
-
-    async def fetch(self, resource: str, **kwargs) -> Any:
-        """Enhanced retrieval that handles URLs, search queries, and Google search integration."""
-        from .enhanced import rival_retrieve
-
-        return await rival_retrieve(resource, **kwargs)
-
-
-class UnifiedFetcher(BaseFetcher):
-    """Unified fetcher with multiple strategies and fallbacks."""
-
-    def __init__(self):
-        """Initialize the unified fetcher."""
-        super().__init__()
-        self.url_fetcher = URLFetcher()
-        self.batch_fetcher = BatchFetcher()
-        self.enhanced_fetcher = EnhancedFetcher()
-
-    async def fetch(self, resource: Union[str, List[str]], **kwargs) -> Any:
-        """Fetch content using the best available method."""
-        if isinstance(resource, list):
-            return await self.batch_fetcher.fetch(resource, **kwargs)
-        elif resource.startswith(("http://", "https://")):
-            return await self.url_fetcher.fetch(resource, **kwargs)
-        else:
-            return await self.enhanced_fetcher.fetch(resource, **kwargs)
