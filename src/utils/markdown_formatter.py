@@ -81,6 +81,86 @@ def format_social_media_markdown(query: str, results: Dict[str, Any]) -> str:
             output += f"[🔗 Read on Medium]({article['url']})\n\n"
             output += "---\n\n"
 
+    # Stack Overflow / Stack Exchange results
+    if "stackoverflow" in results and results["stackoverflow"].get("results"):
+        output += "## Stack Overflow Results\n\n"
+        for i, q in enumerate(results["stackoverflow"]["results"][:10], 1):
+            output += f"### {i}. {q['title']}\n\n"
+            stats = (
+                f"**Score:** {q.get('score', 0)} | "
+                f"**Answers:** {q.get('answer_count', 0)} | "
+                f"**Views:** {q.get('view_count', 0)}"
+            )
+            if q.get("accepted_answer_id"):
+                stats += " | ✅ **Accepted answer**"
+            output += stats + "\n\n"
+            if q.get("author"):
+                output += f"**By:** {q['author']}\n\n"
+            if q.get("tags"):
+                output += f"**Tags:** {', '.join(q['tags'][:5])}\n\n"
+            output += f"[🔗 View Question]({q['url']})\n\n"
+            output += "---\n\n"
+
+    # Bluesky results
+    if "bluesky" in results and results["bluesky"].get("results"):
+        output += "## Bluesky Results\n\n"
+        for i, post in enumerate(results["bluesky"]["results"][:10], 1):
+            display = post.get("author_display_name") or post.get("author_handle", "")
+            handle = post.get("author_handle", "")
+            output += f"### {i}. {display} (@{handle})\n\n"
+            output += f"{post.get('text', '')}\n\n"
+            output += (
+                f"**♥ {post.get('like_count', 0)} · "
+                f"🔁 {post.get('repost_count', 0)} · "
+                f"💬 {post.get('reply_count', 0)}**\n\n"
+            )
+            if post.get("url"):
+                output += f"[🔗 View Post]({post['url']})\n\n"
+            output += "---\n\n"
+
+    # Lobste.rs results
+    if "lobsters" in results and results["lobsters"].get("results"):
+        output += "## Lobste.rs Results\n\n"
+        for i, story in enumerate(results["lobsters"]["results"][:10], 1):
+            output += f"### {i}. {story['title']}\n\n"
+            output += (
+                f"**Score:** {story.get('score', 0)} | "
+                f"**Comments:** {story.get('comments_count', 0)}\n\n"
+            )
+            if story.get("tags"):
+                output += f"**Tags:** {', '.join(story['tags'][:5])}\n\n"
+            if story.get("byline"):
+                output += f"*{story['byline']}*\n\n"
+            if story.get("url"):
+                output += f"[🔗 Link]({story['url']})"
+                if story.get("comments_url"):
+                    output += f" | [💬 Discussion]({story['comments_url']})"
+                output += "\n\n"
+            elif story.get("comments_url"):
+                output += f"[💬 Discussion]({story['comments_url']})\n\n"
+            output += "---\n\n"
+
+    # Lemmy results
+    if "lemmy" in results and results["lemmy"].get("results"):
+        output += "## Lemmy Results\n\n"
+        for i, post in enumerate(results["lemmy"]["results"][:10], 1):
+            community = post.get("community", "")
+            output += f"### {i}. {post['title']}"
+            if community:
+                output += f" — *!{community}*"
+            output += "\n\n"
+            output += (
+                f"**Score:** {post.get('score', 0)} | "
+                f"**Comments:** {post.get('comments', 0)} | "
+                f"**By:** {post.get('author', 'unknown')}\n\n"
+            )
+            if post.get("body"):
+                output += f"{post['body'][:200]}\n\n"
+            link = post.get("url") or post.get("ap_id", "")
+            if link:
+                output += f"[🔗 View Post]({link})\n\n"
+            output += "---\n\n"
+
     output += f"*Search completed on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*"
     return output
 
