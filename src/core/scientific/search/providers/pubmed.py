@@ -1,198 +1,166 @@
 """
-PubMed academic search provider.
-Handles searching and retrieving papers from PubMed API.
+PubMed academic search provider via NCBI E-utilities.
+
+No API key required (NCBI allows 3 req/sec unauthenticated, 10 req/sec
+with key). Two-step protocol:
+  1. esearch.fcgi returns a list of PMIDs matching the query.
+  2. efetch.fcgi returns full article XML for those PMIDs.
+
+NCBI asks that callers identify themselves via UA + tool/email params
+("Each request should include an email and a tool name so we can
+contact you if there is a problem"). We set both.
 """
 
-import asyncio
+import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional
 
-import requests
+import httpx
 
 from src.logging.logger import logger
 
+_EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+
 
 class PubMedProvider:
-    """Provider for searching PubMed academic papers."""
+    """Search PubMed via NCBI E-utilities."""
 
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update(
-            {
-                "User-Agent": "RivalSearchMCP/1.0",
-                "Email": "research@example.com",  # Required by NCBI
-            }
-        )
+        self.headers = {
+            "User-Agent": (
+                "rivalsearchmcp/1.0 " "(+https://github.com/damionrashford/RivalSearchMCP)"
+            ),
+        }
+        # NCBI recommends `tool` + `email` on every request.
+        self.base_params = {
+            "tool": "rivalsearchmcp",
+            "email": "research@rivalsearchmcp.com",
+        }
 
     async def search(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
-        """
-        Search papers using PubMed API.
+        async with httpx.AsyncClient(
+            headers=self.headers, timeout=30.0, follow_redirects=True
+        ) as client:
+            try:
+                search_r = await client.get(
+                    f"{_EUTILS}/esearch.fcgi",
+                    params={
+                        **self.base_params,
+                        "db": "pubmed",
+                        "term": query,
+                        "retmax": min(limit, 100),
+                        "retmode": "json",
+                        "sort": "relevance",
+                    },
+                )
+                if search_r.status_code != 200:
+                    logger.warning(
+                        "pubmed esearch returned %s for %r",
+                        search_r.status_code,
+                        query,
+                    )
+                    return []
+                ids = search_r.json().get("esearchresult", {}).get("idlist", [])
+                if not ids:
+                    logger.info("pubmed: 0 for %r", query)
+                    return []
 
-        Args:
-            query: Search query
-            limit: Maximum number of results
-
-        Returns:
-            List of paper dictionaries
-        """
-        try:
-            base_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
-
-            # First, search for IDs
-            search_params = {
-                "db": "pubmed",
-                "term": query,
-                "retmax": min(limit, 100),
-                "retmode": "json",
-                "sort": "relevance",
-            }
-
-            search_response = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self.session.get(
-                    f"{base_url}esearch.fcgi", params=search_params, timeout=30
-                ),
-            )
-
-            if search_response.status_code != 200:
-                logger.warning(f"PubMed search API error: {search_response.status_code}")
-                return []
-
-            search_data = search_response.json()
-            ids = search_data.get("esearchresult", {}).get("idlist", [])
-
-            if not ids:
-                logger.info(f"No PubMed results found for query: {query}")
-                return []
-
-            # Fetch details for found IDs (limit to prevent API abuse)
-            fetch_limit = min(limit, 20)  # Conservative limit for XML parsing
-            fetch_params = {
-                "db": "pubmed",
-                "id": ",".join(ids[:fetch_limit]),
-                "retmode": "xml",
-            }
-
-            fetch_response = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self.session.get(f"{base_url}efetch.fcgi", params=fetch_params, timeout=30),
-            )
-
-            if fetch_response.status_code == 200:
-                papers = self._parse_pubmed_response(fetch_response.text)
-                logger.info(f"Found {len(papers)} papers from PubMed for query: {query}")
+                fetch_r = await client.get(
+                    f"{_EUTILS}/efetch.fcgi",
+                    params={
+                        **self.base_params,
+                        "db": "pubmed",
+                        "id": ",".join(ids[: min(limit, 20)]),
+                        "retmode": "xml",
+                    },
+                )
+                if fetch_r.status_code != 200:
+                    logger.warning(
+                        "pubmed efetch returned %s (body: %s)",
+                        fetch_r.status_code,
+                        fetch_r.text[:200],
+                    )
+                    return []
+                papers = self._parse(fetch_r.text)
+                logger.info("pubmed: %d for %r", len(papers), query)
                 return papers
-            else:
-                logger.warning(f"PubMed fetch API error: {fetch_response.status_code}")
+
+            except httpx.HTTPError as e:
+                logger.warning("pubmed network error: %s", e)
+                return []
+            except Exception:
+                logger.exception("pubmed unexpected error")
                 return []
 
-        except Exception as e:
-            logger.error(f"Error searching PubMed: {e}")
+    def _parse(self, xml_content: str) -> List[Dict[str, Any]]:
+        try:
+            root = ET.fromstring(xml_content)
+        except ET.ParseError as e:
+            logger.warning("pubmed XML parse failed: %s", e)
             return []
 
-    def _parse_pubmed_response(self, xml_content: str) -> List[Dict[str, Any]]:
-        """Parse PubMed XML response."""
-        try:
-            import xml.etree.ElementTree as ET
-
-            root = ET.fromstring(xml_content)
-            papers = []
-
-            # PubMed XML structure
-            articles = root.findall(".//PubmedArticle") or root.findall(".//Article")
-
-            for article in articles:
-                try:
-                    paper = {}
-
-                    # Extract title
-                    title_elem = article.find(".//ArticleTitle")
-                    if title_elem is not None and title_elem.text:
-                        paper["title"] = title_elem.text.strip()
-
-                    # Extract abstract
-                    abstract_elem = article.find(".//AbstractText")
-                    if abstract_elem is not None and abstract_elem.text:
-                        paper["abstract"] = abstract_elem.text.strip()
-
-                    # Extract authors
-                    authors = []
-                    author_elems = article.findall(".//Author")
-                    for author_elem in author_elems:
-                        name_elem = author_elem.find(".//LastName")
-                        fore_elem = author_elem.find(".//ForeName")
-                        if name_elem is not None:
-                            name = name_elem.text or ""
-                            if fore_elem is not None and fore_elem.text:
-                                name = f"{fore_elem.text} {name}"
-                            authors.append({"name": name.strip()})
-
-                    paper["authors"] = authors
-
-                    # Extract publication year
-                    year_elem = article.find(".//PubDate/Year")
-                    if year_elem is not None and year_elem.text:
-                        paper["year"] = int(year_elem.text.strip())
-
-                    # Extract PMID
-                    pmid_elem = article.find(".//PMID")
-                    if pmid_elem is not None and pmid_elem.text:
-                        paper["paperId"] = pmid_elem.text.strip()
-                        paper["url"] = f"https://pubmed.ncbi.nlm.nih.gov/{pmid_elem.text.strip()}/"
-
-                    # Extract journal/venue
-                    journal_elem = article.find(".//Journal/Title")
-                    if journal_elem is not None and journal_elem.text:
-                        paper["venue"] = journal_elem.text.strip()
-
-                    paper["source"] = "pubmed"
-
-                    if paper.get("title"):  # Only add if we have at least a title
-                        papers.append(paper)
-
-                except Exception as parse_error:
-                    logger.warning(f"Error parsing PubMed article: {parse_error}")
+        papers: List[Dict[str, Any]] = []
+        for article in root.findall(".//PubmedArticle"):
+            try:
+                title_el = article.find(".//ArticleTitle")
+                title = (title_el.text or "").strip() if title_el is not None else ""
+                if not title:
                     continue
 
-            return papers
+                abstract_parts = [
+                    (el.text or "").strip() for el in article.findall(".//AbstractText") if el.text
+                ]
+                abstract = " ".join(abstract_parts)
 
-        except Exception as e:
-            logger.error(f"Error parsing PubMed XML response: {e}")
-            return []
+                authors: List[Dict[str, str]] = []
+                for a in article.findall(".//Author"):
+                    last = a.findtext("LastName") or ""
+                    fore = a.findtext("ForeName") or ""
+                    name = f"{fore} {last}".strip()
+                    if name:
+                        authors.append({"name": name})
+
+                pmid = (article.findtext(".//PMID") or "").strip()
+                year_text = article.findtext(".//PubDate/Year")
+                year = int(year_text) if year_text and year_text.isdigit() else None
+                venue = article.findtext(".//Journal/Title") or ""
+
+                papers.append(
+                    {
+                        "title": title,
+                        "authors": authors,
+                        "abstract": abstract,
+                        "url": f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else "",
+                        "year": year,
+                        "venue": venue.strip(),
+                        "paperId": pmid,
+                        "source": "pubmed",
+                    }
+                )
+            except Exception as e:
+                logger.debug("pubmed article parse failed: %s", e)
+        return papers
 
     async def get_paper_details(self, pmid: str) -> Optional[Dict[str, Any]]:
-        """
-        Get detailed information for a specific PubMed paper.
-
-        Args:
-            pmid: PubMed ID
-
-        Returns:
-            Paper details or None if not found
-        """
-        try:
-            base_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
-            params = {
-                "db": "pubmed",
-                "id": pmid,
-                "retmode": "xml",
-            }
-
-            response = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self.session.get(f"{base_url}efetch.fcgi", params=params, timeout=30),
-            )
-
-            if response.status_code == 200:
-                papers = self._parse_pubmed_response(response.text)
+        async with httpx.AsyncClient(
+            headers=self.headers, timeout=30.0, follow_redirects=True
+        ) as client:
+            try:
+                r = await client.get(
+                    f"{_EUTILS}/efetch.fcgi",
+                    params={
+                        **self.base_params,
+                        "db": "pubmed",
+                        "id": pmid,
+                        "retmode": "xml",
+                    },
+                )
+                if r.status_code != 200:
+                    return None
+                papers = self._parse(r.text)
                 return papers[0] if papers else None
-            else:
-                logger.warning(f"Failed to get PubMed paper details: {response.status_code}")
+            except Exception:
+                logger.exception("pubmed get_paper_details failed")
                 return None
 
-        except Exception as e:
-            logger.error(f"Error getting PubMed paper details: {e}")
-            return None
-
     def close(self):
-        """Close the session."""
-        self.session.close()
+        """Nothing to close; AsyncClient is used per-call."""

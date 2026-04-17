@@ -1,22 +1,54 @@
 """
 Semantic Scholar academic search provider.
-Handles searching and retrieving papers from Semantic Scholar API.
+
+Uses the public Graph API at api.semanticscholar.org/graph/v1. Works
+without an API key but is aggressively rate-limited (shared quota
+across all anonymous callers, routinely returns 429 during peak
+hours). When 429 arrives we log at info level and return an empty
+list -- the aggregator catches it and other providers still return
+their results.
+
+Set `SEMANTIC_SCHOLAR_API_KEY` in the environment to raise this
+caller's quota; the key is forwarded via the `x-api-key` header when
+present.
 """
 
-import asyncio
+import os
 from typing import Any, Dict, List, Optional
 
-import requests
+import httpx
 
 from src.logging.logger import logger
 
+_API_BASE = "https://api.semanticscholar.org/graph/v1"
+_DEFAULT_FIELDS = [
+    "title",
+    "abstract",
+    "authors",
+    "year",
+    "venue",
+    "citationCount",
+    "openAccessPdf",
+    "url",
+    "paperId",
+    "publicationDate",
+    "fieldsOfStudy",
+]
+
 
 class SemanticScholarProvider:
-    """Provider for searching Semantic Scholar academic papers."""
+    """Search Semantic Scholar via the public Graph API."""
 
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "RivalSearchMCP/1.0"})
+        self.headers = {
+            "User-Agent": (
+                "rivalsearchmcp/1.0 " "(+https://github.com/damionrashford/RivalSearchMCP)"
+            ),
+            "Accept": "application/json",
+        }
+        api_key = os.getenv("SEMANTIC_SCHOLAR_API_KEY", "").strip()
+        if api_key:
+            self.headers["x-api-key"] = api_key
 
     async def search(
         self,
@@ -26,117 +58,75 @@ class SemanticScholarProvider:
         year: Optional[str] = None,
         venue: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """
-        Search papers using Semantic Scholar API.
-
-        Args:
-            query: Search query
-            limit: Maximum number of results
-            fields: Fields to retrieve
-            year: Publication year filter
-            venue: Venue filter
-
-        Returns:
-            List of paper dictionaries
-        """
-        if fields is None:
-            fields = [
-                "title",
-                "abstract",
-                "authors",
-                "year",
-                "venue",
-                "citationCount",
-                "openAccessPdf",
-                "url",
-                "paperId",
-                "publicationDate",
-                "fieldsOfStudy",
-            ]
-
-        params = {
+        params: Dict[str, Any] = {
             "query": query,
-            "limit": min(limit, 100),  # API limit
-            "fields": ",".join(fields),
+            "limit": min(limit, 100),
+            "fields": ",".join(fields or _DEFAULT_FIELDS),
         }
-
         if year:
             params["year"] = year
         if venue:
             params["venue"] = venue
 
         try:
-            response = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self.session.get(
-                    "https://api.semanticscholar.org/graph/v1/paper/search",
-                    params=params,
-                    timeout=30,
-                ),
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                papers = data.get("data", [])
-                logger.info(f"Found {len(papers)} papers from Semantic Scholar for query: {query}")
+            async with httpx.AsyncClient(
+                headers=self.headers, timeout=30.0, follow_redirects=True
+            ) as client:
+                r = await client.get(f"{_API_BASE}/paper/search", params=params)
+                if r.status_code == 429:
+                    logger.info(
+                        "semantic_scholar rate-limited (429); skipping this call "
+                        "(set SEMANTIC_SCHOLAR_API_KEY for higher quota)"
+                    )
+                    return []
+                if r.status_code != 200:
+                    logger.warning(
+                        "semantic_scholar returned %s (body: %s)",
+                        r.status_code,
+                        r.text[:200],
+                    )
+                    return []
+                papers = r.json().get("data", [])
+                for p in papers:
+                    p["source"] = "semantic_scholar"
+                logger.info("semantic_scholar: %d for %r", len(papers), query)
                 return papers
-            else:
-                logger.warning(
-                    f"Semantic Scholar API error: {response.status_code} - {response.text}"
-                )
-                return []
-
-        except Exception as e:
-            logger.error(f"Error searching Semantic Scholar: {e}")
+        except httpx.HTTPError as e:
+            logger.warning("semantic_scholar network error: %s", e)
+            return []
+        except Exception:
+            logger.exception("semantic_scholar unexpected error")
             return []
 
     async def get_paper_details(
         self, paper_id: str, fields: Optional[List[str]] = None
     ) -> Optional[Dict[str, Any]]:
-        """
-        Get detailed information for a specific paper.
-
-        Args:
-            paper_id: Semantic Scholar paper ID
-            fields: Fields to retrieve
-
-        Returns:
-            Paper details or None if not found
-        """
-        if fields is None:
-            fields = [
-                "title",
-                "abstract",
-                "authors",
-                "year",
-                "venue",
-                "citationCount",
-                "references",
-                "citations",
-            ]
-
-        params = {"fields": ",".join(fields)}
-
-        try:
-            response = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self.session.get(
-                    f"https://api.semanticscholar.org/graph/v1/paper/{paper_id}",
-                    params=params,
-                    timeout=30,
-                ),
+        params = {
+            "fields": ",".join(
+                fields
+                or [
+                    "title",
+                    "abstract",
+                    "authors",
+                    "year",
+                    "venue",
+                    "citationCount",
+                    "references",
+                    "citations",
+                ]
             )
-
-            if response.status_code == 200:
-                return response.json()
-            else:
-                logger.warning(f"Failed to get paper details: {response.status_code}")
-                return None
-
-        except Exception as e:
-            logger.error(f"Error getting paper details: {e}")
+        }
+        try:
+            async with httpx.AsyncClient(
+                headers=self.headers, timeout=30.0, follow_redirects=True
+            ) as client:
+                r = await client.get(f"{_API_BASE}/paper/{paper_id}", params=params)
+                if r.status_code != 200:
+                    return None
+                return r.json()
+        except Exception:
+            logger.exception("semantic_scholar get_paper_details failed")
             return None
 
     def close(self):
-        """Close the session."""
-        self.session.close()
+        """Nothing to close; AsyncClient is used per-call."""

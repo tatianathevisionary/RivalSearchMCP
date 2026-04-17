@@ -9,8 +9,10 @@ from typing import Any, Dict, List, Optional
 
 from src.logging.logger import logger
 
+from .providers.dataverse import DataverseDatasetProvider
 from .providers.huggingface import HuggingFaceDatasetProvider
 from .providers.kaggle import KaggleDatasetProvider
+from .providers.zenodo import ZenodoDatasetProvider
 
 
 class DatasetDiscoveryOrchestrator:
@@ -20,6 +22,8 @@ class DatasetDiscoveryOrchestrator:
         self.providers = {
             "kaggle": KaggleDatasetProvider(),
             "huggingface": HuggingFaceDatasetProvider(),
+            "zenodo": ZenodoDatasetProvider(),
+            "dataverse": DataverseDatasetProvider(),
         }
 
     async def search_datasets(

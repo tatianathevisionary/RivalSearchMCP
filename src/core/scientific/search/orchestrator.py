@@ -10,6 +10,9 @@ from typing import Any, Dict, List, Optional
 from src.logging.logger import logger
 
 from .providers.arxiv import ArXivProvider
+from .providers.crossref import CrossRefProvider
+from .providers.europepmc import EuropePMCProvider
+from .providers.openalex import OpenAlexProvider
 from .providers.pubmed import PubMedProvider
 from .providers.semantic_scholar import SemanticScholarProvider
 
@@ -19,9 +22,12 @@ class AcademicSearchOrchestrator:
 
     def __init__(self):
         self.providers = {
+            "openalex": OpenAlexProvider(),
+            "crossref": CrossRefProvider(),
             "semantic_scholar": SemanticScholarProvider(),
             "arxiv": ArXivProvider(),
             "pubmed": PubMedProvider(),
+            "europepmc": EuropePMCProvider(),
         }
 
     async def search_academic_papers(

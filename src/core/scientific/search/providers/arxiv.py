@@ -1,23 +1,31 @@
 """
-arXiv academic search provider.
-Handles searching and retrieving papers from arXiv API.
+arXiv academic search provider via the public arXiv Atom XML API.
+
+No authentication required. Rate-limited by the arXiv team to "a few
+requests per second" per IP. Covers ~2.4M preprints across CS, math,
+physics, quant-bio, quant-fin, stats, and EESS.
 """
 
-import asyncio
+import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional
-from urllib.parse import quote
 
-import requests
+import httpx
 
 from src.logging.logger import logger
 
+_ATOM_NS = {"atom": "http://www.w3.org/2005/Atom"}
+_ARXIV_API = "http://export.arxiv.org/api/query"
+
 
 class ArXivProvider:
-    """Provider for searching arXiv academic papers."""
+    """Search arXiv preprints via the public Atom API."""
 
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "RivalSearchMCP/1.0"})
+        self.headers = {
+            "User-Agent": (
+                "rivalsearchmcp/1.0 " "(+https://github.com/damionrashford/RivalSearchMCP)"
+            ),
+        }
 
     async def search(
         self,
@@ -26,143 +34,86 @@ class ArXivProvider:
         sort_by: str = "relevance",
         sort_order: str = "descending",
     ) -> List[Dict[str, Any]]:
-        """
-        Search papers using arXiv API.
-
-        Args:
-            query: Search query
-            limit: Maximum number of results
-            sort_by: Sort field (relevance, submittedDate, etc.)
-            sort_order: Sort order (ascending, descending)
-
-        Returns:
-            List of paper dictionaries
-        """
+        params = {
+            "search_query": query,
+            "start": 0,
+            "max_results": min(limit, 200),
+            "sortBy": sort_by,
+            "sortOrder": sort_order,
+        }
         try:
-            base_url = "http://export.arxiv.org/api/query"
-            params = {
-                "search_query": query,
-                "start": 0,
-                "max_results": min(limit, 200),  # API limit
-                "sortBy": sort_by,
-                "sortOrder": sort_order,
-            }
-
-            response = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: self.session.get(base_url, params=params, timeout=30)
-            )
-
-            if response.status_code == 200:
-                papers = self._parse_arxiv_response(response.text, limit, query)
-                logger.info(f"Found {len(papers)} papers from arXiv for query: {query}")
+            async with httpx.AsyncClient(
+                headers=self.headers, timeout=30.0, follow_redirects=True
+            ) as client:
+                r = await client.get(_ARXIV_API, params=params)
+                if r.status_code != 200:
+                    logger.warning("arXiv returned %s for %r", r.status_code, query)
+                    return []
+                papers = self._parse(r.text, limit)
+                logger.info("arxiv: %d papers for %r", len(papers), query)
                 return papers
-            else:
-                logger.warning(f"arXiv API error: {response.status_code}")
-                return []
-
-        except Exception as e:
-            logger.error(f"Error searching arXiv: {e}")
+        except httpx.HTTPError as e:
+            logger.warning("arxiv network error: %s", e)
+            return []
+        except Exception:
+            logger.exception("arxiv unexpected error")
             return []
 
-    def _parse_arxiv_response(
-        self, xml_content: str, limit: int, query: str = ""
-    ) -> List[Dict[str, Any]]:
-        """Parse arXiv XML response."""
+    def _parse(self, xml_content: str, limit: int) -> List[Dict[str, Any]]:
         try:
-            import xml.etree.ElementTree as ET
-
-            # arXiv uses Atom XML format
             root = ET.fromstring(xml_content)
-            namespace = {"atom": "http://www.w3.org/2005/Atom"}
+        except ET.ParseError as e:
+            logger.warning("arxiv XML parse failed: %s", e)
+            return []
 
-            papers = []
-            entries = root.findall("atom:entry", namespace)
-
-            for entry in entries[:limit]:
-                try:
-                    # Extract basic information
-                    title_elem = entry.find("atom:title", namespace)
-                    title = title_elem.text.strip() if title_elem is not None else "Unknown Title"
-
-                    id_elem = entry.find("atom:id", namespace)
-                    url = id_elem.text.strip() if id_elem is not None else ""
-
-                    # Extract authors
-                    authors = []
-                    author_elems = entry.findall("atom:author", namespace)
-                    for author_elem in author_elems:
-                        name_elem = author_elem.find("atom:name", namespace)
-                        if name_elem is not None:
-                            authors.append({"name": name_elem.text.strip()})
-
-                    # Extract publication date
-                    published_elem = entry.find("atom:published", namespace)
-                    published_date = (
-                        published_elem.text.strip() if published_elem is not None else ""
-                    )
-                    year = published_date[:4] if published_date else None
-
-                    # Extract abstract (summary)
-                    summary_elem = entry.find("atom:summary", namespace)
-                    abstract = summary_elem.text.strip() if summary_elem is not None else ""
-
-                    paper = {
+        papers: List[Dict[str, Any]] = []
+        for entry in root.findall("atom:entry", _ATOM_NS)[:limit]:
+            try:
+                title = _text(entry.find("atom:title", _ATOM_NS))
+                url = _text(entry.find("atom:id", _ATOM_NS))
+                abstract = _text(entry.find("atom:summary", _ATOM_NS))
+                published = _text(entry.find("atom:published", _ATOM_NS))
+                authors = [
+                    {"name": _text(a.find("atom:name", _ATOM_NS))}
+                    for a in entry.findall("atom:author", _ATOM_NS)
+                ]
+                authors = [a for a in authors if a["name"]]
+                papers.append(
+                    {
                         "title": title,
                         "authors": authors,
                         "abstract": abstract,
                         "url": url,
-                        "year": year,
+                        "year": published[:4] if published else None,
                         "source": "arxiv",
-                        "paperId": url.split("/")[-1] if url else None,
+                        "paperId": url.rsplit("/", 1)[-1] if url else None,
                     }
-
-                    papers.append(paper)
-
-                except Exception as parse_error:
-                    logger.warning(f"Error parsing arXiv entry: {parse_error}")
-                    continue
-
-            return papers
-
-        except Exception as e:
-            logger.error(f"Error parsing arXiv XML response: {e}")
-            # Fallback: return basic result
-            return [
-                {
-                    "title": f"arXiv search results for: {query}",
-                    "url": f"https://arxiv.org/search/?query={quote(query)}",
-                    "source": "arxiv",
-                }
-            ]
+                )
+            except Exception as e:
+                logger.debug("arxiv entry parse failed: %s", e)
+        return papers
 
     async def get_paper_details(self, paper_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get detailed information for a specific arXiv paper.
-
-        Args:
-            paper_id: arXiv paper ID (e.g., "2101.12345")
-
-        Returns:
-            Paper details or None if not found
-        """
+        params = {"id_list": paper_id}
         try:
-            url = f"http://export.arxiv.org/api/query?id_list={paper_id}"
-
-            response = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: self.session.get(url, timeout=30)
-            )
-
-            if response.status_code == 200:
-                papers = self._parse_arxiv_response(response.text, 1, paper_id)
+            async with httpx.AsyncClient(
+                headers=self.headers, timeout=30.0, follow_redirects=True
+            ) as client:
+                r = await client.get(_ARXIV_API, params=params)
+                if r.status_code != 200:
+                    return None
+                papers = self._parse(r.text, 1)
                 return papers[0] if papers else None
-            else:
-                logger.warning(f"Failed to get arXiv paper details: {response.status_code}")
-                return None
-
-        except Exception as e:
-            logger.error(f"Error getting arXiv paper details: {e}")
+        except Exception:
+            logger.exception("arxiv get_paper_details failed")
             return None
 
     def close(self):
-        """Close the session."""
-        self.session.close()
+        """Nothing to close; AsyncClient is used per-call."""
+
+
+def _text(elem) -> str:
+    """Safely extract stripped text from an ElementTree element."""
+    if elem is None or elem.text is None:
+        return ""
+    return elem.text.strip()
